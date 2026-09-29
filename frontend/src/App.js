@@ -400,6 +400,32 @@ function Admin({ token, onClose, onOffers }) {
   const openOrders = orders.filter((o) => !o.done);
   const doneOrders = orders.filter((o) => o.done);
 
+  const [deliveryOrder, setDeliveryOrder] = useState("");
+  const [deliveryFiles, setDeliveryFiles] = useState([]);
+  const [deliveryMessage, setDeliveryMessage] = useState("");
+  const [deliveryBusy, setDeliveryBusy] = useState(false);
+  const [deliveryDone, setDeliveryDone] = useState("");
+  const selectedOrder = orders.find((o) => o.paypal_id === deliveryOrder);
+
+  async function uploadDeliveryFile(e) {
+    const f = e.target.files?.[0]; if (!f) return;
+    setDeliveryBusy(true);
+    try {
+      const fd = new FormData(); fd.append("file", f);
+      const r = await axios.post(`${API}/admin/upload`, fd, { headers });
+      setDeliveryFiles((prev) => [...prev, { path: r.data.url.replace("/api/files/", ""), name: f.name }]);
+    } catch { setFormError("Upload fehlgeschlagen."); } finally { setDeliveryBusy(false); e.target.value = ""; }
+  }
+  async function sendDelivery() {
+    if (!selectedOrder || deliveryFiles.length === 0) return;
+    setDeliveryBusy(true);
+    try {
+      await axios.post(`${API}/admin/deliver`, { order_id: selectedOrder.paypal_id, files: deliveryFiles.map((f) => f.path), message: deliveryMessage }, { headers });
+      setDeliveryDone(`Versendet an ${selectedOrder.customer?.email} – Auftrag wurde als erledigt markiert.`);
+      setDeliveryOrder(""); setDeliveryFiles([]); setDeliveryMessage(""); load();
+    } catch (err) { setFormError(typeof err.response?.data?.detail === "string" ? err.response.data.detail : "Versand fehlgeschlagen."); } finally { setDeliveryBusy(false); }
+  }
+
   function orderRow(o, isDone) {
     return <div className="order-row" key={o.paypal_id} data-testid={`order-row-${o.paypal_id}`}>
       <div className="order-main">
@@ -426,6 +452,7 @@ function Admin({ token, onClose, onOffers }) {
         <button className={tab === "offers" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("offers")} data-testid="admin-tab-offers">Angebote</button>
         <button className={tab === "orders" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("orders")} data-testid="admin-tab-orders">Bestellungen {openOrders.length > 0 && <span className="tab-count">{openOrders.length}</span>}</button>
         <button className={tab === "done" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("done")} data-testid="admin-tab-done">Erledigt {doneOrders.length > 0 && <span className="tab-count done-count">{doneOrders.length}</span>}</button>
+        <button className={tab === "delivery" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("delivery")} data-testid="admin-tab-delivery">Versand</button>
         <button className={tab === "sale" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("sale")} data-testid="admin-tab-sale"><Timer size={12}/> Sale-Timer</button>
       </div>
 
@@ -492,6 +519,31 @@ function Admin({ token, onClose, onOffers }) {
         <div className="admin-list" data-testid="done-orders-list">
           {doneOrders.length === 0 && <p className="orders-empty" data-testid="done-orders-empty">Noch keine erledigten Bestellungen.</p>}
           {doneOrders.map((o) => orderRow(o, true))}
+        </div>
+      </>}
+
+      {tab === "delivery" && <>
+        <p className="modal-intro">Wähl eine Bestellung – die E-Mail des Kunden wird automatisch übernommen. Häng die fertigen Dateien an und sende sie direkt raus.</p>
+        {formError && <div className="form-error" data-testid="admin-form-error">{formError}</div>}
+        <div className="sale-form delivery-form">
+          <label>Bestellung auswählen
+            <select value={deliveryOrder} onChange={(e) => { setDeliveryOrder(e.target.value); setDeliveryDone(""); setFormError(""); }} data-testid="delivery-order-select">
+              <option value="">– Bestellung wählen –</option>
+              {orders.map((o) => <option key={o.paypal_id} value={o.paypal_id}>{(o.items || []).map((i) => i.name).join(" + ") || o.offer_name || o.offer_id} · {o.customer?.name} · {o.status === "COMPLETED" ? "bezahlt" : "offen"}{o.done ? " · erledigt" : ""}</option>)}
+            </select>
+          </label>
+          {selectedOrder && <>
+            <label>An (Kunden-E-Mail)<input readOnly value={selectedOrder.customer?.email || ""} data-testid="delivery-email-input"/></label>
+            <label>Nachricht <span>(optional)</span><textarea value={deliveryMessage} onChange={(e) => setDeliveryMessage(e.target.value)} placeholder="Kurze Notiz an den Kunden..." data-testid="delivery-message-input"/></label>
+            <div className="upload-row">
+              <label className="ghost-button upload-btn">{deliveryBusy ? "Lädt hoch..." : "Datei anhängen"}<input type="file" hidden onChange={uploadDeliveryFile} data-testid="delivery-file-input"/></label>
+            </div>
+            {deliveryFiles.length > 0 && <div className="delivery-files" data-testid="delivery-file-list">
+              {deliveryFiles.map((f) => <div className="delivery-file" key={f.path}><span>{f.name}</span><button onClick={() => setDeliveryFiles(deliveryFiles.filter((x) => x.path !== f.path))} data-testid={`delivery-file-remove-${f.name}`}><X size={13}/></button></div>)}
+            </div>}
+            <button className="primary-button" disabled={deliveryBusy || deliveryFiles.length === 0} onClick={sendDelivery} data-testid="delivery-send-button">Jetzt an den Kunden senden</button>
+            {deliveryDone && <p className="sale-ok" data-testid="delivery-success">{deliveryDone}</p>}
+          </>}
         </div>
       </>}
 

@@ -387,17 +387,22 @@ async def delete_order_admin(paypal_id: str, authorization: Optional[str] = Head
     if result.deleted_count == 0: raise HTTPException(404, "Bestellung nicht gefunden")
     return {"deleted": True}
 
-ALLOWED_IMAGE_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
+ALLOWED_UPLOAD_TYPES = {
+    "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+    "application/zip": "zip", "application/x-zip-compressed": "zip",
+    "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-wav": "wav", "audio/ogg": "ogg",
+    "video/mp4": "mp4", "application/pdf": "pdf",
+}
 
 @api_router.post("/admin/upload")
 async def admin_upload(file: UploadFile = File(...), authorization: Optional[str] = Header(None)):
     require_admin(authorization)
-    if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(400, "Nur JPG, PNG, WebP oder GIF erlaubt")
+    if file.content_type not in ALLOWED_UPLOAD_TYPES:
+        raise HTTPException(400, "Dateityp nicht erlaubt (Bilder, ZIP, MP3, WAV, OGG, MP4, PDF)")
     data = await file.read()
-    if len(data) > 8 * 1024 * 1024:
-        raise HTTPException(400, "Datei zu groß (max. 8 MB)")
-    path = f"{APP_NAME}/uploads/{uuid.uuid4().hex}.{ALLOWED_IMAGE_TYPES[file.content_type]}"
+    if len(data) > 50 * 1024 * 1024:
+        raise HTTPException(400, "Datei zu groß (max. 50 MB)")
+    path = f"{APP_NAME}/uploads/{uuid.uuid4().hex}.{ALLOWED_UPLOAD_TYPES[file.content_type]}"
     result = await asyncio.to_thread(put_object, path, data, file.content_type)
     await db.files.insert_one({"id": str(uuid.uuid4()), "storage_path": result["path"], "original_filename": file.filename, "content_type": file.content_type, "size": result["size"], "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
     return {"url": f"/api/files/{result['path']}"}
@@ -408,7 +413,52 @@ async def download_file(path: str):
     if not record:
         raise HTTPException(404, "Datei nicht gefunden")
     data, content_type = await asyncio.to_thread(get_object, path)
-    return Response(content=data, media_type=record.get("content_type", content_type))
+    headers = {}
+    if not (record.get("content_type") or "").startswith("image/"):
+        headers["Content-Disposition"] = f'attachment; filename="{record.get("original_filename", "download")}"'
+    return Response(content=data, media_type=record.get("content_type", content_type), headers=headers)
+
+class Delivery(BaseModel):
+    order_id: str
+    files: List[str]
+    message: str = ""
+
+@api_router.post("/admin/deliver")
+async def deliver_order(data: Delivery, authorization: Optional[str] = Header(None)):
+    require_admin(authorization)
+    order = await db.orders.find_one({"paypal_id": data.order_id}, {"_id": 0})
+    if not order: raise HTTPException(404, "Bestellung nicht gefunden")
+    if not data.files: raise HTTPException(400, "Mindestens eine Datei anhängen")
+    file_docs = []
+    for p in data.files:
+        rec = await db.files.find_one({"storage_path": p, "is_deleted": False}, {"_id": 0})
+        if not rec: raise HTTPException(400, "Datei nicht gefunden")
+        file_docs.append(rec)
+    origin = urlparse(os.environ["PAYPAL_RETURN_URL"])
+    base = f"{origin.scheme}://{origin.netloc}"
+    c = order.get("customer", {})
+    subject = f"Deine Bestellung bei {EMAIL_FROM_NAME} ist fertig"
+    link_items = "".join(
+        f'<li style="padding:8px 0"><a href="{base}/api/files/{escape(rec["storage_path"])}" style="color:#00F0FF;font-size:14px">Download: {escape((rec.get("original_filename", "Datei")).split(".")[0])}</a></li>'
+        for rec in file_docs)
+    message_row = f'<p style="font-size:13px;line-height:1.6;color:#8B9BB4;margin:16px 0 0">{escape(data.message)}</p>' if data.message else ""
+    item_names = ", ".join(i["name"] for i in order.get("items", []))
+    html = (
+        '<table role="presentation" width="100%" style="background:#07090E;padding:32px 0"><tr><td align="center">'
+        '<table role="presentation" width="520" style="background:#0E121B;border:1px solid rgba(0,240,255,0.25);padding:32px;font-family:Arial,sans-serif;color:#F0F4F8">'
+        '<tr><td><p style="font-size:11px;letter-spacing:3px;color:#00F0FF;margin:0 0 8px">BLACKSOLID CREATIVE SUPPLY</p>'
+        '<h1 style="font-size:22px;margin:0 0 18px">Deine Bestellung ist fertig</h1>'
+        f'<p style="font-size:14px;line-height:1.6;margin:0 0 20px">Hi {escape(c.get("name", "Creator"))}, dein Auftrag ({escape(item_names)}) ist fertig! '
+        'Hier sind deine Dateien zum Herunterladen:</p>'
+        f'<ul style="list-style:none;padding:16px 18px;margin:0;border:1px solid rgba(0,240,255,0.15)">{link_items}</ul>'
+        f'{message_row}'
+        '<p style="font-size:12px;color:#8B9BB4;line-height:1.6;margin:20px 0 0">Fragen? Antworte einfach auf diese E-Mail.</p>'
+        f'<p style="font-size:11px;color:#8B9BB4;margin:16px 0 0">Gesendet von {escape(EMAIL_FROM_NAME)}. Wir fragen niemals nach Passwoertern oder Kartendaten per E-Mail.</p>'
+        '</td></tr></table></td></tr></table>'
+    )
+    await send_email(to=c["email"], subject=subject, html=html)
+    await db.orders.update_one({"paypal_id": data.order_id}, {"$set": {"done": True, "delivered_at": datetime.now(timezone.utc).isoformat()}})
+    return {"sent": True, "to": c["email"]}
 
 @api_router.get("/my/orders")
 async def my_orders(authorization: Optional[str] = Header(None)):

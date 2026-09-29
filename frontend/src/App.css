@@ -460,3 +460,9 @@ input:disabled { opacity: 0.45; cursor: not-allowed; }
 .sale-form input { color-scheme: dark; }
 .sale-ok { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--green); }
 .sale-hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.delivery-form { max-width: 560px; }
+.delivery-form select { width: 100%; padding: 14px 16px; background: rgba(7, 9, 14, 0.9); border: 1px solid var(--border); color: var(--text); font-family: "JetBrains Mono", monospace; font-size: 12px; outline: none; cursor: pointer; margin-top: 9px; }
+.delivery-files { display: flex; flex-direction: column; gap: 8px; }
+.delivery-file { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--border); background: rgba(7, 9, 14, 0.6); padding: 10px 14px; font-family: "JetBrains Mono", monospace; font-size: 12px; }
+.delivery-file button { background: none; border: none; color: var(--muted); cursor: pointer; display: flex; }
+.delivery-file button:hover { color: var(--red); }
