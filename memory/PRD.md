@@ -1,31 +1,26 @@
-# BLACKSOLID Creative Supply — PRD
+# PRD — BLACKSOLID Streamer-Shop
 
-## Original problem statement
-Erstelle mir eine HTML-Seite als Shop, wo ich für Streamer Overlays, Logos und Musik anbiete. Das aktuelle Angebot und die Preise sollen selbst festlegbar sein. Bezahlt werden soll über PayPal. Der Look soll Gaming-OBS-Streaming sein.
+## Original-Problemstellung
+HTML-Seite / Shop für Streamer (Overlays, Logos, Musik). Admin legt Angebote und Preise selbst fest. Bezahlung über PayPal. Design: Gaming / OBS / Streaming-Look (dunkel mit blauen Akzenten).
 
-## Decisions
-- Dark gaming / OBS visual language with blue and cyan accents.
-- Public storefront with Stream Overlays, Logos & Branding, and Stream Music & Jingles.
-- Protected admin Control Room for editing offer name, description and price.
-- Customer name, email and brief collected before redirecting to PayPal Live.
-- Currency: EUR.
+## Architektur
+React SPA (Frontend) + FastAPI (Backend) + MongoDB. Custom JWT Admin-Auth. PayPal REST API (Live-Modus).
 
-## Architecture
-- React frontend using the existing CRA stack and responsive CSS.
-- FastAPI backend with Motor/MongoDB, JWT admin session, offer CRUD, and PayPal REST order/capture endpoints.
-- PayPal secrets and admin credentials are environment-only; public frontend uses REACT_APP_BACKEND_URL.
-- Offers are seeded idempotently on backend startup and MongoDB `_id` is excluded from API responses.
+## Umgesetzt
+- 2026-09: Shop-UI im dunklen Gaming-Look mit Neon-Akzenten, Produkt-Grid, Kategoriefilter
+- 2026-09: Admin-Panel (Control Room) zum Bearbeiten von Angeboten und Preisen (JWT-geschützt)
+- 2026-09: PayPal-Checkout (create-order / capture) mit Bestellungen in MongoDB
+- 2026-09: FIX — PayPal 401 invalid_client behoben: Ursache waren Sandbox-Keys im Live-Modus; Live-Keys des Users hinterlegt, Live-Bestellung erfolgreich getestet (Order-ID + Approval-URL von paypal.com)
 
-## Implemented
-- High-impact BLACKSOLID storefront with hero, service filters, offer cards, workflow section and responsive mobile navigation.
-- Three seeded offers, editable prices/descriptions, featured labels and category filtering.
-- Admin login and protected Control Room editing flow.
-- Checkout modal with customer details and PayPal Live approval redirect plus capture return handling.
-- API error handling, EUR pricing, configurable PayPal return/cancel URLs, and non-blocking PayPal network calls.
-- Test credentials documented in `test_credentials.md`.
+## Personas
+- Shop-Betreiber (Admin): pflegt Angebote/Preise
+- Streamer (Kunde): kauft Overlays/Logos/Musik per PayPal
 
-## Prioritized backlog
-- P0: Verify one live PayPal order end-to-end with a real customer transaction and confirm PayPal account/webhook settings.
-- P1: Add an admin order list with customer details, payment status and export.
-- P1: Add image upload/storage for custom offer artwork instead of remote image URLs.
-- P2: Add automated order confirmation email and downloadable delivery links.
+## Backlog
+- P0: —
+- P1: Bestellübersicht für Admin (Käufe einsehen), E-Mail-Benachrichtigung bei Kauf
+- P2: Award-Level Redesign (kinetic hero, scroll reveals, smooth scrolling), Produktbilder-Upload, neue Angebote im Admin anlegen (aktuell nur bearbeiten)
+
+## Nächste Tasks
+- Design-Upgrade nach User-Freigabe
+- Admin: Angebote hinzufügen/löschen
