@@ -134,9 +134,11 @@ async def send_purchase_email(order: dict, order_id: str):
     items = order.get("items", [])
     total = order.get("total") or sum(i.get("price", 0) for i in items)
     subject = f"Neue Bestellung: {len(items)} Artikel" if len(items) != 1 else f"Neue Bestellung: {items[0]['name']}"
-    item_rows = "".join(
-        f'<tr><td style="padding:6px 0;font-size:13px">{escape(i["name"])}</td>'
-        f'<td style="padding:6px 0;font-size:13px;text-align:right">{i["price"]:.2f} EUR</td></tr>' for i in items)
+    def item_row(i):
+        price_txt = "kostenlos" if i["price"] == 0 else f"{i['price']:.2f} EUR"
+        return (f'<tr><td style="padding:6px 0;font-size:13px">{escape(i["name"])}</td>'
+                f'<td style="padding:6px 0;font-size:13px;text-align:right">{price_txt}</td></tr>')
+    item_rows = "".join(item_row(i) for i in items)
     notes_row = (f'<tr><td style="padding:6px 0;color:#8B9BB4;font-size:13px">Notiz</td>'
                  f'<td style="padding:6px 0;font-size:13px">{escape(c.get("notes", ""))}</td></tr>') if c.get("notes") else ""
     html = (
@@ -186,7 +188,7 @@ class CartCheckout(BaseModel):
 class OfferUpdate(BaseModel):
     name: str
     description: str
-    price: float = Field(gt=0)
+    price: float = Field(ge=0)
     category: str
     image: str
     featured: bool = False
@@ -399,18 +401,28 @@ async def delete_my_order(paypal_id: str, authorization: Optional[str] = Header(
 async def create_order(data: CartCheckout, authorization: Optional[str] = Header(None)):
     offers_found = await db.offers.find({"id": {"$in": data.offer_ids}, "active": True}, {"_id": 0}).to_list(50)
     if not offers_found: raise HTTPException(404, "Keine gültigen Angebote im Warenkorb")
-    if any(o["price"] <= 0 for o in offers_found): raise HTTPException(400, "Ein Angebot im Warenkorb hat keinen gültigen Preis (0 €). Bitte kontaktiere den Shop-Betreiber.")
+    customer = require_customer(authorization)
+    user_id = customer["sub"].split(":", 1)[1]
+    items = [{"offer_id": o["id"], "name": o["name"], "price": final_price(o)} for o in offers_found]
+    total = sum(i["price"] for i in items)
+    paid = [o for o in offers_found if final_price(o) > 0]
+    base_doc = {"items": items, "total": total, "customer": {"name": data.name, "email": customer["email"], "notes": data.notes}, "user_id": user_id, "created_at": datetime.now(timezone.utc).isoformat()}
+    if not paid:
+        free_id = f"FREE-{uuid.uuid4().hex[:8].upper()}"
+        await db.orders.insert_one({**base_doc, "paypal_id": free_id, "status": "COMPLETED", "free": True})
+        try:
+            await send_purchase_email({**base_doc}, free_id)
+        except Exception as e:
+            logger.error(f"Kauf-E-Mail fehlgeschlagen: {e}")
+        return {"order_id": free_id, "free": True}
     token = await paypal_access_token()
     if not token: raise HTTPException(502, "PayPal konnte nicht erreicht werden")
-    total = sum(final_price(o) for o in offers_found)
-    units = [{"reference_id": o["id"], "description": o["name"], "amount": {"currency_code": "EUR", "value": f"{final_price(o):.2f}"}} for o in offers_found]
+    units = [{"reference_id": o["id"], "description": o["name"], "amount": {"currency_code": "EUR", "value": f"{final_price(o):.2f}"}} for o in paid]
     order_payload = {"intent": "CAPTURE", "purchase_units": units, "application_context": {"brand_name": "BLACKSOLID", "user_action": "PAY_NOW", "return_url": os.environ["PAYPAL_RETURN_URL"], "cancel_url": os.environ["PAYPAL_CANCEL_URL"]}}
     order = await asyncio.to_thread(requests.post, f"{os.environ['PAYPAL_BASE_URL']}/v2/checkout/orders", json=order_payload, headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "Prefer": "return=representation"})
     if order.status_code >= 400: raise HTTPException(502, "PayPal-Bestellung konnte nicht erstellt werden")
     result = order.json()
-    customer = require_customer(authorization)
-    doc = {"paypal_id": result["id"], "items": [{"offer_id": o["id"], "name": o["name"], "price": final_price(o)} for o in offers_found], "total": total, "customer": {"name": data.name, "email": customer["email"], "notes": data.notes}, "user_id": customer["sub"].split(":", 1)[1], "status": "created", "created_at": datetime.now(timezone.utc).isoformat()}
-    await db.orders.insert_one(doc)
+    await db.orders.insert_one({**base_doc, "paypal_id": result["id"], "status": "created"})
     approval = next((link["href"] for link in result.get("links", []) if link["rel"] == "approve"), None)
     return {"order_id": result["id"], "approval_url": approval}
 

@@ -15,7 +15,7 @@ const rise = { hidden: { opacity: 0, y: 48 }, show: { opacity: 1, y: 0, transiti
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.12 } } };
 
 const finalPrice = (o) => Math.round(o.price * (1 - (o.discount || 0) / 100) * 100) / 100;
-const fmt = (n) => "€" + Number(n).toFixed(2).replace(".00", "");
+const fmt = (n) => Number(n) === 0 ? "GRATIS" : "€" + Number(n).toFixed(2).replace(".00", "");
 const pad = (n) => String(n).padStart(2, "0");
 
 function SaleTimer() {
@@ -156,7 +156,7 @@ function App() {
     </footer>
 
     {cartOpen && <CartDrawer items={cartItems} onClose={() => setCartOpen(false)} onRemove={(id) => setCart(cart.filter((c) => c !== id))} onCheckout={() => { if (!customer) { setCartOpen(false); setCustomerLoginOpen(true); setNotice("Bitte melde dich zuerst mit Google an – danach geht es direkt weiter."); return; } setCartOpen(false); setCheckoutOpen(true); }}/>}
-    {checkoutOpen && <Checkout items={cartItems} customer={customer} onClose={() => setCheckoutOpen(false)} onNotice={setNotice}/>}
+    {checkoutOpen && <Checkout items={cartItems} customer={customer} onClose={() => setCheckoutOpen(false)} onNotice={setNotice} onFreeSuccess={() => { setCart([]); setCheckoutOpen(false); }}/>}
     {customerLoginOpen && <CustomerLogin onClose={() => setCustomerLoginOpen(false)}/>}
     {accountOpen && customer && <Account customer={customer} onClose={() => setAccountOpen(false)} onLogout={logout}/>}
     {loginOpen && <Login onClose={() => setLoginOpen(false)} onSuccess={(t) => { setToken(t); setLoginOpen(false); setAdmin(true); }}/>}
@@ -236,7 +236,7 @@ function CartDrawer({ items, onClose, onRemove, onCheckout }) {
   </motion.div>;
 }
 
-function Checkout({ items, customer, onClose, onNotice }) {
+function Checkout({ items, customer, onClose, onNotice, onFreeSuccess }) {
   const [form, setForm] = useState({ name: customer?.name || "", email: customer?.email || "", notes: "" });
   const [loading, setLoading] = useState(false);
   const total = items.reduce((sum, i) => sum + finalPrice(i), 0);
@@ -244,9 +244,11 @@ function Checkout({ items, customer, onClose, onNotice }) {
     e.preventDefault(); setLoading(true);
     try {
       const result = await axios.post(`${API}/paypal/create-order`, { offer_ids: items.map((i) => i.id), ...form }, { headers: { Authorization: `Bearer ${customer.token}` } });
+      if (result.data.free) { onNotice("Bestellung eingegangen! Du bekommst dein Produkt per E-Mail zugeschickt."); onFreeSuccess(); return; }
       window.location.href = result.data.approval_url;
-    } catch (err) { onNotice(err.response?.data?.detail || "PayPal konnte die Bestellung nicht starten. Bitte prüfe deine Eingaben."); setLoading(false); }
+    } catch (err) { onNotice(err.response?.data?.detail || "Die Bestellung konnte nicht gestartet werden. Bitte prüfe deine Eingaben."); setLoading(false); }
   }
+  const isFree = total === 0;
   return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
     <motion.div className="checkout-modal" data-testid="checkout-modal" initial={{ opacity: 0, y: 40, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.45, ease }}>
       <button className="modal-close" onClick={onClose} data-testid="checkout-close"><X/></button>
@@ -261,8 +263,8 @@ function Checkout({ items, customer, onClose, onNotice }) {
         <label>Name<input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Dein Name" data-testid="customer-name-input"/></label>
         <label>E-Mail<input required type="email" value={form.email} readOnly data-testid="customer-email-input"/></label>
         <label>Brief / Notiz <span>(optional)</span><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Erzähl uns kurz von deinem Kanal..." data-testid="customer-notes-input"/></label>
-        <button className="primary-button full" disabled={loading} data-testid="paypal-submit-button"><CreditCard size={17}/>{loading ? "Weiterleitung..." : "Mit PayPal bezahlen"}</button>
-        <small className="secure-note"><ShieldCheck size={14}/> Du wirst sicher zu PayPal weitergeleitet. Zahlung in EUR.</small>
+        <button className="primary-button full" disabled={loading} data-testid="paypal-submit-button"><CreditCard size={17}/>{loading ? "Wird gesendet..." : isFree ? "Kostenlos bestellen" : "Mit PayPal bezahlen"}</button>
+        <small className="secure-note"><ShieldCheck size={14}/> {isFree ? "Kostenlos – kein PayPal nötig. Lieferung per E-Mail." : "Du wirst sicher zu PayPal weitergeleitet. Zahlung in EUR."}</small>
       </form>
     </motion.div>
   </motion.div>;
@@ -385,9 +387,9 @@ function Admin({ token, onClose, onOffers }) {
   }
   useEffect(() => { load().catch(() => {}); }, [token]);
 
-  async function save(item) { try { await axios.put(`${API}/admin/offers/${item.id}`, item, { headers }); setEditing(null); setFormError(""); load(); onOffers(); } catch (err) { setFormError(typeof err.response?.data?.detail === "string" ? err.response.data.detail : "Speichern fehlgeschlagen. Preis muss über 0 € liegen."); } }
+  async function save(item) { try { await axios.put(`${API}/admin/offers/${item.id}`, item, { headers }); setEditing(null); setFormError(""); load(); onOffers(); } catch (err) { setFormError(typeof err.response?.data?.detail === "string" ? err.response.data.detail : "Speichern fehlgeschlagen. Bitte Eingaben prüfen."); } }
   async function remove(item) { await axios.delete(`${API}/admin/offers/${item.id}`, { headers }); load(); onOffers(); }
-  async function create(e) { e.preventDefault(); try { await axios.post(`${API}/admin/offers`, { ...draft, price: Number(draft.price) || 0, discount: Number(draft.discount) || 0, active: true }, { headers }); setCreating(false); setDraft(emptyDraft); setFormError(""); load(); onOffers(); } catch { setFormError("Angebot konnte nicht angelegt werden. Preis muss über 0 € liegen."); } }
+  async function create(e) { e.preventDefault(); try { await axios.post(`${API}/admin/offers`, { ...draft, price: Number(draft.price) || 0, discount: Number(draft.discount) || 0, active: true }, { headers }); setCreating(false); setDraft(emptyDraft); setFormError(""); load(); onOffers(); } catch { setFormError("Angebot konnte nicht angelegt werden. Bitte Eingaben prüfen."); } }
   async function saveSale() {
     const iso = saleEnd ? new Date(saleEnd).toISOString() : null;
     await axios.put(`${API}/admin/settings`, { sale_ends_at: iso }, { headers });
@@ -435,11 +437,12 @@ function Admin({ token, onClose, onOffers }) {
           <input required placeholder="Name" value={draft.name} onChange={e => setDraft({...draft, name: e.target.value})} data-testid="create-offer-name"/>
           <textarea required placeholder="Beschreibung" value={draft.description} onChange={e => setDraft({...draft, description: e.target.value})} data-testid="create-offer-description"/>
           <div className="edit-row">
-            <input required type="number" min="0.01" step="0.01" placeholder="Preis in EUR" value={draft.price} onChange={e => setDraft({...draft, price: e.target.value})} data-testid="create-offer-price"/>
+            <input required type="number" min="0.01" step="0.01" placeholder="Preis in EUR" value={draft.price} disabled={draft.price === 0} onChange={e => setDraft({...draft, price: e.target.value})} data-testid="create-offer-price"/>
             <select value={draft.category} onChange={e => setDraft({...draft, category: e.target.value})} data-testid="create-offer-category">
               <option value="OVERLAYS">OVERLAYS</option><option value="BRANDING">BRANDING</option><option value="MUSIC">MUSIC</option>
             </select>
           </div>
+          <label className="check-row"><input type="checkbox" checked={draft.price === 0} onChange={e => setDraft({...draft, price: e.target.checked ? 0 : ""})} data-testid="create-offer-free"/> Kostenlos anbieten – kein PayPal, du lieferst per E-Mail</label>
           <div className="edit-row">
             <input type="number" min="0" max="90" placeholder="Rabatt in % (0 = keiner)" value={draft.discount} onChange={e => setDraft({...draft, discount: e.target.value})} data-testid="create-offer-discount"/>
             <BadgeSelect value={draft.badge} onChange={(b) => setDraft({...draft, badge: b})} testid="create-offer-badge"/>
@@ -457,10 +460,11 @@ function Admin({ token, onClose, onOffers }) {
             <input value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} data-testid={`edit-name-${item.id}`}/>
             <textarea value={editing.description} onChange={e => setEditing({...editing, description: e.target.value})} data-testid={`edit-description-${item.id}`}/>
             <div className="edit-row">
-              <input type="number" min="0.01" step="0.01" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} data-testid={`edit-price-${item.id}`}/>
+              <input type="number" min="0.01" step="0.01" value={editing.price} disabled={Number(editing.price) === 0} onChange={e => setEditing({...editing, price: Number(e.target.value)})} data-testid={`edit-price-${item.id}`}/>
               <input type="number" min="0" max="90" placeholder="Rabatt %" value={editing.discount} onChange={e => setEditing({...editing, discount: Number(e.target.value)})} data-testid={`edit-discount-${item.id}`}/>
               <BadgeSelect value={editing.badge} onChange={(b) => setEditing({...editing, badge: b})} testid={`edit-badge-${item.id}`}/>
             </div>
+            <label className="check-row"><input type="checkbox" checked={Number(editing.price) === 0} onChange={e => setEditing({...editing, price: e.target.checked ? 0 : (item.price || 1)})} data-testid={`edit-free-${item.id}`}/> Kostenlos anbieten – kein PayPal, Lieferung per E-Mail</label>
             <ImageUpload token={token} value={editing.image} onChange={(url) => setEditing({...editing, image: url})} testid={`edit-upload-${item.id}`}/>
             <div className="edit-row"><button className="primary-button" onClick={() => save(editing)} data-testid={`save-offer-${item.id}`}>Speichern</button><button className="ghost-button" onClick={() => setEditing(null)} data-testid={`cancel-edit-${item.id}`}>Abbrechen</button></div>
           </div> :
