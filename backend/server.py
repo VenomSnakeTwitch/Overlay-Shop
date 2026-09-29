@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from pathlib import Path
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
-import os, uuid, logging, requests, jwt
+import os, uuid, logging, requests, jwt, asyncio
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -66,6 +66,10 @@ async def seed_offers():
             {"id": "music-pack", "name": "Stream Music Pack", "description": "Individuelle Jingles und Loops ohne Copyright-Stress für deine Show.", "price": 59, "category": "MUSIC", "image": "https://images.unsplash.com/photo-1616681255209-368a2cd3e643?auto=format&fit=crop&w=1000&q=80", "featured": False, "active": True},
         ])
 
+async def paypal_access_token():
+    response = await asyncio.to_thread(requests.post, f"{os.environ['PAYPAL_BASE_URL']}/v1/oauth2/token", data={"grant_type": "client_credentials"}, auth=(os.environ["PAYPAL_CLIENT_ID"], os.environ["PAYPAL_SECRET"]), headers={"Accept": "application/json"})
+    return response.json().get("access_token")
+
 @app.on_event("startup")
 async def startup(): await seed_offers()
 
@@ -93,9 +97,10 @@ async def update_offer(offer_id: str, data: OfferUpdate, authorization: Optional
 async def create_order(data: Customer):
     offer = await db.offers.find_one({"id": data.offer_id, "active": True}, {"_id": 0})
     if not offer: raise HTTPException(404, "Angebot nicht gefunden")
-    token = requests.post(f"{os.environ['PAYPAL_BASE_URL']}/v1/oauth2/token", data={"grant_type": "client_credentials"}, auth=(os.environ["PAYPAL_CLIENT_ID"], os.environ["PAYPAL_SECRET"]), headers={"Accept": "application/json"}).json().get("access_token")
+    token = await paypal_access_token()
     if not token: raise HTTPException(502, "PayPal konnte nicht erreicht werden")
-    order = requests.post(f"{os.environ['PAYPAL_BASE_URL']}/v2/checkout/orders", json={"intent": "CAPTURE", "purchase_units": [{"reference_id": offer["id"], "description": offer["name"], "amount": {"currency_code": "EUR", "value": f"{offer['price']:.2f}"}}], "application_context": {"brand_name": "BLACKSOLID", "user_action": "PAY_NOW", "return_url": "https://overlay-hub-4.preview.emergentagent.com/?payment=success", "cancel_url": "https://overlay-hub-4.preview.emergentagent.com/?payment=cancelled"}}, headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "Prefer": "return=representation"})
+    order_payload = {"intent": "CAPTURE", "purchase_units": [{"reference_id": offer["id"], "description": offer["name"], "amount": {"currency_code": "EUR", "value": f"{offer['price']:.2f}"}}], "application_context": {"brand_name": "BLACKSOLID", "user_action": "PAY_NOW", "return_url": os.environ["PAYPAL_RETURN_URL"], "cancel_url": os.environ["PAYPAL_CANCEL_URL"]}}
+    order = await asyncio.to_thread(requests.post, f"{os.environ['PAYPAL_BASE_URL']}/v2/checkout/orders", json=order_payload, headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "Prefer": "return=representation"})
     if order.status_code >= 400: raise HTTPException(502, "PayPal-Bestellung konnte nicht erstellt werden")
     result = order.json(); await db.orders.insert_one({"paypal_id": result["id"], "offer_id": offer["id"], "customer": data.model_dump(), "status": "created", "created_at": datetime.now(timezone.utc).isoformat()})
     approval = next((link["href"] for link in result.get("links", []) if link["rel"] == "approve"), None)
@@ -103,9 +108,8 @@ async def create_order(data: Customer):
 
 @api_router.post("/paypal/capture/{order_id}")
 async def capture_order(order_id: str):
-    token_response = requests.post(f"{os.environ['PAYPAL_BASE_URL']}/v1/oauth2/token", data={"grant_type": "client_credentials"}, auth=(os.environ["PAYPAL_CLIENT_ID"], os.environ["PAYPAL_SECRET"]), headers={"Accept": "application/json"})
-    token = token_response.json().get("access_token")
-    response = requests.post(f"{os.environ['PAYPAL_BASE_URL']}/v2/checkout/orders/{order_id}/capture", headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    token = await paypal_access_token()
+    response = await asyncio.to_thread(requests.post, f"{os.environ['PAYPAL_BASE_URL']}/v2/checkout/orders/{order_id}/capture", headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
     if response.status_code >= 400: raise HTTPException(502, "Zahlung konnte nicht bestätigt werden")
     data = response.json(); await db.orders.update_one({"paypal_id": order_id}, {"$set": {"status": data.get("status", "COMPLETED")}})
     return {"status": data.get("status", "COMPLETED")}
