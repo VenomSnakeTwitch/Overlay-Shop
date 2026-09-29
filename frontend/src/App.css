@@ -431,3 +431,25 @@ textarea { min-height: 90px; resize: vertical; }
 .upload-btn { display: inline-flex; cursor: pointer; padding: 11px 18px; font-size: 10px; }
 .card-button.in-cart { color: var(--green); border-color: rgba(0, 255, 102, 0.4); }
 .card-button.in-cart:hover { color: #04121a; background: var(--green); border-color: var(--green); }
+
+/* ---------- SALE / DISCOUNTS / BADGES ---------- */
+.sale-timer { display: flex; align-items: center; gap: 8px; font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; color: var(--red); }
+.sale-timer svg { animation: blink 1.4s infinite; }
+.price-block { display: flex; flex-direction: column; gap: 2px; }
+.old-price { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--muted); text-decoration: line-through; }
+.discount-tag { position: absolute; top: 14px; right: 16px; z-index: 2; font-family: "JetBrains Mono", monospace; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; color: #04121a; background: var(--red); padding: 6px 11px; box-shadow: 0 0 18px rgba(255, 42, 95, 0.5); }
+.badge-tag { position: absolute; top: 14px; left: 16px; z-index: 2; font-family: "JetBrains Mono", monospace; font-size: 9px; font-weight: 800; letter-spacing: 0.22em; padding: 6px 11px; }
+.badge-tag.inline { position: static; margin-left: 8px; }
+.badge-neu { color: #04121a; background: var(--green); box-shadow: 0 0 16px rgba(0, 255, 102, 0.45); }
+.badge-beliebt { color: #04121a; background: var(--cyan); box-shadow: 0 0 16px rgba(0, 240, 255, 0.45); }
+.badge-limited { color: #fff; background: var(--red); box-shadow: 0 0 16px rgba(255, 42, 95, 0.45); }
+.card-image .featured-tag { top: 46px; }
+.cart-old { color: var(--muted); margin-left: 8px; font-size: 11px; }
+.checkout-discount { font-style: normal; font-family: "JetBrains Mono", monospace; font-size: 10px; color: var(--red); margin-left: 8px; }
+.admin-price { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.admin-price small { font-family: "JetBrains Mono", monospace; font-size: 10px; color: var(--red); }
+.badge-select { padding: 14px 16px; background: rgba(7, 9, 14, 0.9); border: 1px solid var(--border); color: var(--text); font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: 0.1em; outline: none; cursor: pointer; margin-top: 0; }
+.sale-form { background: rgba(7, 9, 14, 0.6); border: 1px solid var(--border); padding: 24px; display: flex; flex-direction: column; gap: 16px; max-width: 420px; }
+.sale-form input { color-scheme: dark; }
+.sale-ok { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--green); }
+.sale-hint { font-size: 12px; color: var(--muted); line-height: 1.6; }

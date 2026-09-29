@@ -2,21 +2,32 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import Lenis from "lenis";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { ArrowUpRight, Check, ChevronRight, CreditCard, Headphones, LayoutTemplate, LockKeyhole, LogOut, Menu, Pencil, Plus, Radio, ShieldCheck, ShoppingCart, Sparkles, Trash2, User, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronRight, CreditCard, Headphones, LayoutTemplate, LockKeyhole, LogOut, Menu, Pencil, Plus, Radio, ShieldCheck, ShoppingCart, Sparkles, Timer, Trash2, User, X } from "lucide-react";
 import "@/App.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const icons = { OVERLAYS: LayoutTemplate, BRANDING: Sparkles, MUSIC: Headphones };
 const categories = ["ALL", "OVERLAYS", "BRANDING", "MUSIC"];
+const badges = ["", "NEU", "BELIEBT", "LIMITED"];
 
 const ease = [0.22, 1, 0.36, 1];
 const rise = { hidden: { opacity: 0, y: 48 }, show: { opacity: 1, y: 0, transition: { duration: 0.8, ease } } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.12 } } };
 
-function Clock() {
-  const [time, setTime] = useState("");
-  useEffect(() => { const tick = () => setTime(new Date().toLocaleTimeString("de-DE", { hour12: false })); tick(); const id = setInterval(tick, 1000); return () => clearInterval(id); }, []);
-  return <span className="hud-clock" data-testid="hud-clock">{time}</span>;
+const finalPrice = (o) => Math.round(o.price * (1 - (o.discount || 0) / 100) * 100) / 100;
+const fmt = (n) => "€" + Number(n).toFixed(2).replace(".00", "");
+const pad = (n) => String(n).padStart(2, "0");
+
+function SaleTimer() {
+  const [endsAt, setEndsAt] = useState(null);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { axios.get(`${API}/settings`).then((r) => setEndsAt(r.data.sale_ends_at)).catch(() => {}); }, []);
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
+  if (!endsAt) return null;
+  const diff = new Date(endsAt).getTime() - now;
+  if (diff <= 0) return null;
+  const d = Math.floor(diff / 86400000); const h = Math.floor(diff / 3600000) % 24; const m = Math.floor(diff / 60000) % 60; const s = Math.floor(diff / 1000) % 60;
+  return <span className="sale-timer" data-testid="sale-timer"><Timer size={12}/>SALE ENDET IN {d > 0 ? `${d}T ` : ""}{pad(h)}:{pad(m)}:{pad(s)}</span>;
 }
 
 function App() {
@@ -93,7 +104,7 @@ function App() {
     <nav className="nav" data-testid="main-navigation">
       <a className="brand" href="#top" data-testid="brand-home"><span className="brand-mark">BS</span><span className="brand-word">BLACKSOLID<small>CREATIVE SUPPLY</small></span></a>
       <div className={mobileOpen ? "nav-links mobile-open" : "nav-links"}>
-        <span className="hud-status"><span className="rec-dot"/>REC <Clock/></span>
+        <SaleTimer/>
         <a href="#services" onClick={() => setMobileOpen(false)} data-testid="services-link">Services</a>
         <a href="#process" onClick={() => setMobileOpen(false)} data-testid="process-link">Workflow</a>
         <button className="nav-icon-btn" onClick={() => { setMobileOpen(false); customer ? setAccountOpen(true) : setCustomerLoginOpen(true); }} data-testid="customer-account-button"><User size={14}/>{customer ? customer.name?.split(" ")[0] || "Konto" : "Login"}</button>
@@ -190,17 +201,22 @@ function Hero({ onShop }) {
 
 function OfferCard({ offer, inCart, onAdd }) {
   const Icon = icons[offer.category] || Sparkles;
+  const hasDiscount = (offer.discount || 0) > 0;
   return <motion.article className="offer-card" variants={rise} data-testid={`offer-card-${offer.id}`} whileHover={{ y: -8 }} transition={{ type: "spring", stiffness: 260, damping: 22 }}>
-    <div className="card-image"><img src={offer.image} alt={offer.name}/><span className="category-tag"><Icon size={13}/>{offer.category}</span>{offer.featured && <span className="featured-tag">FEATURED</span>}</div>
+    <div className="card-image"><img src={offer.image} alt={offer.name}/><span className="category-tag"><Icon size={13}/>{offer.category}</span>
+      {hasDiscount && <span className="discount-tag" data-testid={`offer-discount-${offer.id}`}>-{offer.discount}%</span>}
+      {offer.badge && <span className={`badge-tag badge-${offer.badge.toLowerCase()}`} data-testid={`offer-badge-${offer.id}`}>{offer.badge}</span>}
+      {offer.featured && !offer.badge && <span className="featured-tag">FEATURED</span>}
+    </div>
     <div className="card-body"><div><h3 data-testid={`offer-name-${offer.id}`}>{offer.name}</h3><p data-testid={`offer-description-${offer.id}`}>{offer.description}</p></div>
-    <div className="card-bottom"><strong data-testid={`offer-price-${offer.id}`}>€{offer.price.toFixed(2).replace(".00", "")}</strong><button className={inCart ? "card-button in-cart" : "card-button"} onClick={() => onAdd(offer.id)} data-testid={`offer-buy-${offer.id}`}>{inCart ? <><Check size={15}/> Im Warenkorb</> : <>In den Warenkorb <ShoppingCart size={15}/></>}</button></div></div>
+    <div className="card-bottom"><div className="price-block">{hasDiscount && <span className="old-price">{fmt(offer.price)}</span>}<strong data-testid={`offer-price-${offer.id}`}>{fmt(finalPrice(offer))}</strong></div><button className={inCart ? "card-button in-cart" : "card-button"} onClick={() => onAdd(offer.id)} data-testid={`offer-buy-${offer.id}`}>{inCart ? <><Check size={15}/> Im Warenkorb</> : <>In den Warenkorb <ShoppingCart size={15}/></>}</button></div></div>
   </motion.article>;
 }
 
 function Step({ number, title, text }) { return <motion.div className="step" variants={rise} data-testid={`workflow-step-${number}`}><span>{number}</span><h3>{title}</h3><p>{text}</p></motion.div>; }
 
 function CartDrawer({ items, onClose, onRemove, onCheckout }) {
-  const total = items.reduce((sum, i) => sum + i.price, 0);
+  const total = items.reduce((sum, i) => sum + finalPrice(i), 0);
   return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} onClick={onClose}>
     <motion.div className="cart-drawer" data-testid="cart-drawer" initial={{ x: 420 }} animate={{ x: 0 }} transition={{ duration: 0.45, ease }} onClick={(e) => e.stopPropagation()}>
       <div className="cart-top"><div><div className="modal-kicker">LOADOUT / {String(items.length).padStart(2, "0")}</div><h2>Waren<em>korb.</em></h2></div><button className="modal-close" style={{position:"static"}} onClick={onClose} data-testid="cart-close"><X/></button></div>
@@ -208,12 +224,12 @@ function CartDrawer({ items, onClose, onRemove, onCheckout }) {
         {items.length === 0 && <p className="orders-empty" data-testid="cart-empty">Noch leer. Schnapp dir ein Paket.</p>}
         {items.map((item) => <div className="cart-item" key={item.id} data-testid={`cart-item-${item.id}`}>
           <img src={item.image} alt={item.name}/>
-          <div><strong>{item.name}</strong><span>€{item.price.toFixed(2).replace(".00", "")}</span></div>
+          <div><strong>{item.name}</strong><span>{fmt(finalPrice(item))}{(item.discount || 0) > 0 && <s className="cart-old">{fmt(item.price)}</s>}</span></div>
           <button onClick={() => onRemove(item.id)} data-testid={`cart-remove-${item.id}`}><Trash2 size={15}/></button>
         </div>)}
       </div>
       {items.length > 0 && <div className="cart-footer">
-        <div className="cart-total"><span>Gesamt</span><strong data-testid="cart-total">€{total.toFixed(2).replace(".00", "")}</strong></div>
+        <div className="cart-total"><span>Gesamt</span><strong data-testid="cart-total">{fmt(total)}</strong></div>
         <button className="primary-button full" onClick={onCheckout} data-testid="cart-checkout-button">Kauf bestätigen <ChevronRight size={16}/></button>
       </div>}
     </motion.div>
@@ -223,7 +239,7 @@ function CartDrawer({ items, onClose, onRemove, onCheckout }) {
 function Checkout({ items, customer, onClose, onNotice }) {
   const [form, setForm] = useState({ name: customer?.name || "", email: customer?.email || "", notes: "" });
   const [loading, setLoading] = useState(false);
-  const total = items.reduce((sum, i) => sum + i.price, 0);
+  const total = items.reduce((sum, i) => sum + finalPrice(i), 0);
   async function submit(e) {
     e.preventDefault(); setLoading(true);
     try {
@@ -238,8 +254,8 @@ function Checkout({ items, customer, onClose, onNotice }) {
       <div className="modal-kicker">READY WHEN YOU ARE / 03</div>
       <h2>Let’s make it <em>real.</em></h2>
       <div className="checkout-items" data-testid="checkout-items">
-        {items.map((i) => <div className="checkout-item" key={i.id}><span>{i.name}</span><b>€{i.price.toFixed(2).replace(".00", "")}</b></div>)}
-        <div className="checkout-item total"><span>Gesamt</span><b data-testid="checkout-total">€{total.toFixed(2).replace(".00", "")}</b></div>
+        {items.map((i) => <div className="checkout-item" key={i.id}><span>{i.name}{(i.discount || 0) > 0 && <i className="checkout-discount">-{i.discount}%</i>}</span><b>{fmt(finalPrice(i))}</b></div>)}
+        <div className="checkout-item total"><span>Gesamt</span><b data-testid="checkout-total">{fmt(total)}</b></div>
       </div>
       <form onSubmit={submit}>
         <label>Name<input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Dein Name" data-testid="customer-name-input"/></label>
@@ -294,7 +310,7 @@ function Account({ customer, onClose, onLogout }) {
             <span>{o.created_at ? new Date(o.created_at).toLocaleString("de-DE") : ""}</span>
           </div>
           <div className="order-side">
-            {o.total != null && <b className="order-price">€{Number(o.total).toFixed(2).replace(".00", "")}</b>}
+            {o.total != null && <b className="order-price">{fmt(o.total)}</b>}
             <span className={`status-badge ${o.status === "COMPLETED" ? "ok" : "pending"}`} data-testid={`my-order-status-${o.paypal_id}`}>{o.status === "COMPLETED" ? "BEZAHLT" : "OFFEN"}</span>
             {o.status !== "COMPLETED" && <button className="delete-button order-delete" onClick={() => remove(o)} data-testid={`my-order-delete-${o.paypal_id}`}><Trash2 size={14}/></button>}
           </div>
@@ -344,7 +360,13 @@ function ImageUpload({ token, value, onChange, testid }) {
   </div>;
 }
 
-const emptyDraft = { name: "", description: "", price: "", category: "OVERLAYS", image: "", featured: false };
+const emptyDraft = { name: "", description: "", price: "", category: "OVERLAYS", image: "", featured: false, discount: 0, badge: "" };
+
+function BadgeSelect({ value, onChange, testid }) {
+  return <select value={value} onChange={(e) => onChange(e.target.value)} data-testid={testid} className="badge-select">
+    <option value="">Kein Badge</option>{badges.filter(Boolean).map((b) => <option key={b} value={b}>{b}</option>)}
+  </select>;
+}
 
 function Admin({ token, onClose, onOffers }) {
   const [tab, setTab] = useState("offers");
@@ -352,17 +374,25 @@ function Admin({ token, onClose, onOffers }) {
   const [editing, setEditing] = useState(null); const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
   const [formError, setFormError] = useState("");
+  const [saleEnd, setSaleEnd] = useState(""); const [saleSaved, setSaleSaved] = useState("");
   const headers = { Authorization: `Bearer ${token}` };
 
   async function load() {
-    setItems((await axios.get(`${API}/admin/offers`, { headers })).data);
+    setItems((await axios.get(`${API}/admin/offers`, { headers })).data.map((i) => ({ discount: 0, badge: "", ...i })));
     setOrders((await axios.get(`${API}/admin/orders`, { headers })).data);
+    const s = await axios.get(`${API}/settings`);
+    if (s.data.sale_ends_at) { const d = new Date(s.data.sale_ends_at); setSaleEnd(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)); }
   }
   useEffect(() => { load().catch(() => {}); }, [token]);
 
-  async function save(item) { try { await axios.put(`${API}/admin/offers/${item.id}`, item, { headers }); setEditing(null); setFormError(""); load(); onOffers(); } catch (err) { setFormError(err.response?.data?.detail?.[0]?.msg ? "Preis muss über 0 € liegen." : (err.response?.data?.detail || "Speichern fehlgeschlagen.")); } }
+  async function save(item) { try { await axios.put(`${API}/admin/offers/${item.id}`, item, { headers }); setEditing(null); setFormError(""); load(); onOffers(); } catch (err) { setFormError(typeof err.response?.data?.detail === "string" ? err.response.data.detail : "Speichern fehlgeschlagen. Preis muss über 0 € liegen."); } }
   async function remove(item) { await axios.delete(`${API}/admin/offers/${item.id}`, { headers }); load(); onOffers(); }
-  async function create(e) { e.preventDefault(); try { await axios.post(`${API}/admin/offers`, { ...draft, price: Number(draft.price) || 0, active: true }, { headers }); setCreating(false); setDraft(emptyDraft); setFormError(""); load(); onOffers(); } catch { setFormError("Angebot konnte nicht angelegt werden. Preis muss über 0 € liegen."); } }
+  async function create(e) { e.preventDefault(); try { await axios.post(`${API}/admin/offers`, { ...draft, price: Number(draft.price) || 0, discount: Number(draft.discount) || 0, active: true }, { headers }); setCreating(false); setDraft(emptyDraft); setFormError(""); load(); onOffers(); } catch { setFormError("Angebot konnte nicht angelegt werden. Preis muss über 0 € liegen."); } }
+  async function saveSale() {
+    const iso = saleEnd ? new Date(saleEnd).toISOString() : null;
+    await axios.put(`${API}/admin/settings`, { sale_ends_at: iso }, { headers });
+    setSaleSaved(iso ? `Sale-Timer aktiv bis ${new Date(iso).toLocaleString("de-DE")}` : "Sale-Timer deaktiviert");
+  }
 
   return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
     <motion.div className="admin-modal" data-testid="admin-panel" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease }}>
@@ -370,10 +400,11 @@ function Admin({ token, onClose, onOffers }) {
       <div className="admin-tabs">
         <button className={tab === "offers" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("offers")} data-testid="admin-tab-offers">Angebote</button>
         <button className={tab === "orders" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("orders")} data-testid="admin-tab-orders">Bestellungen {orders.length > 0 && <span className="tab-count">{orders.length}</span>}</button>
+        <button className={tab === "sale" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("sale")} data-testid="admin-tab-sale"><Timer size={12}/> Sale-Timer</button>
       </div>
 
-      {tab === "offers" ? <>
-        <p className="modal-intro">Lege neue Angebote an, bearbeite Preise oder lösche, was du nicht mehr brauchst.</p>
+      {tab === "offers" && <>
+        <p className="modal-intro">Lege neue Angebote an, bearbeite Preise, Rabatte und Badges oder lösche, was du nicht mehr brauchst.</p>
         {formError && <div className="form-error" data-testid="admin-form-error">{formError}</div>}
         {!creating && <button className="primary-button new-offer-btn" onClick={() => setCreating(true)} data-testid="new-offer-button"><Plus size={15}/> Neues Angebot</button>}
         {creating && <form className="admin-create" onSubmit={create} data-testid="create-offer-form">
@@ -384,6 +415,10 @@ function Admin({ token, onClose, onOffers }) {
             <select value={draft.category} onChange={e => setDraft({...draft, category: e.target.value})} data-testid="create-offer-category">
               <option value="OVERLAYS">OVERLAYS</option><option value="BRANDING">BRANDING</option><option value="MUSIC">MUSIC</option>
             </select>
+          </div>
+          <div className="edit-row">
+            <input type="number" min="0" max="90" placeholder="Rabatt in % (0 = keiner)" value={draft.discount} onChange={e => setDraft({...draft, discount: e.target.value})} data-testid="create-offer-discount"/>
+            <BadgeSelect value={draft.badge} onChange={(b) => setDraft({...draft, badge: b})} testid="create-offer-badge"/>
           </div>
           <input placeholder="Bild-URL oder unten hochladen" value={draft.image} onChange={e => setDraft({...draft, image: e.target.value})} data-testid="create-offer-image"/>
           <ImageUpload token={token} value={draft.image} onChange={(url) => setDraft({...draft, image: url})} testid="create-offer-upload"/>
@@ -397,19 +432,26 @@ function Admin({ token, onClose, onOffers }) {
           <div className="admin-edit" key={item.id}>
             <input value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} data-testid={`edit-name-${item.id}`}/>
             <textarea value={editing.description} onChange={e => setEditing({...editing, description: e.target.value})} data-testid={`edit-description-${item.id}`}/>
+            <div className="edit-row">
+              <input type="number" min="0.01" step="0.01" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} data-testid={`edit-price-${item.id}`}/>
+              <input type="number" min="0" max="90" placeholder="Rabatt %" value={editing.discount} onChange={e => setEditing({...editing, discount: Number(e.target.value)})} data-testid={`edit-discount-${item.id}`}/>
+              <BadgeSelect value={editing.badge} onChange={(b) => setEditing({...editing, badge: b})} testid={`edit-badge-${item.id}`}/>
+            </div>
             <ImageUpload token={token} value={editing.image} onChange={(url) => setEditing({...editing, image: url})} testid={`edit-upload-${item.id}`}/>
-            <div className="edit-row"><input type="number" min="0.01" step="0.01" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} data-testid={`edit-price-${item.id}`}/><button className="primary-button" onClick={() => save(editing)} data-testid={`save-offer-${item.id}`}>Speichern</button><button className="ghost-button" onClick={() => setEditing(null)} data-testid={`cancel-edit-${item.id}`}>Abbrechen</button></div>
+            <div className="edit-row"><button className="primary-button" onClick={() => save(editing)} data-testid={`save-offer-${item.id}`}>Speichern</button><button className="ghost-button" onClick={() => setEditing(null)} data-testid={`cancel-edit-${item.id}`}>Abbrechen</button></div>
           </div> :
           <div className="admin-row" key={item.id} data-testid={`admin-offer-${item.id}`}>
-            <div><span className="category-tag">{item.category}</span><h3>{item.name}</h3></div>
-            <strong>€{item.price.toFixed(2).replace(".00", "")}</strong>
+            <div><span className="category-tag">{item.category}</span>{item.badge && <span className={`badge-tag inline badge-${item.badge.toLowerCase()}`}>{item.badge}</span>}<h3>{item.name}</h3></div>
+            <div className="admin-price"><strong>{fmt(finalPrice(item))}</strong>{(item.discount || 0) > 0 && <small>-{item.discount}%</small>}</div>
             <div className="row-actions">
               <button onClick={() => setEditing(item)} data-testid={`edit-offer-${item.id}`}><Pencil size={16}/></button>
               <button className="delete-button" onClick={() => remove(item)} data-testid={`delete-offer-${item.id}`}><Trash2 size={16}/></button>
             </div>
           </div>)}
         </div>
-      </> : <>
+      </>}
+
+      {tab === "orders" && <>
         <p className="modal-intro">Alle eingegangenen Käufe mit Kundendaten und Zahlungsstatus.</p>
         <div className="admin-list" data-testid="orders-list">
           {orders.length === 0 && <p className="orders-empty" data-testid="orders-empty">Noch keine Bestellungen eingegangen.</p>}
@@ -420,11 +462,24 @@ function Admin({ token, onClose, onOffers }) {
               {o.customer?.notes && <em>„{o.customer.notes}“</em>}
             </div>
             <div className="order-side">
-              {(o.total ?? o.price) != null && <b className="order-price">€{Number(o.total ?? o.price).toFixed(2).replace(".00", "")}</b>}
+              {(o.total ?? o.price) != null && <b className="order-price">{fmt(o.total ?? o.price)}</b>}
               <span className={`status-badge ${o.status === "COMPLETED" ? "ok" : "pending"}`} data-testid={`order-status-${o.paypal_id}`}>{o.status === "COMPLETED" ? "BEZAHLT" : "OFFEN"}</span>
               <small>{o.created_at ? new Date(o.created_at).toLocaleString("de-DE") : ""}</small>
             </div>
           </div>)}
+        </div>
+      </>}
+
+      {tab === "sale" && <>
+        <p className="modal-intro">Lege fest, wann dein Sale endet. Solange der Timer läuft, sehen Besucher den Countdown oben in der Leiste.</p>
+        <div className="sale-form">
+          <label>Sale endet am<input type="datetime-local" value={saleEnd} onChange={(e) => setSaleEnd(e.target.value)} data-testid="sale-end-input"/></label>
+          <div className="edit-row">
+            <button className="primary-button" onClick={saveSale} data-testid="save-sale-button">Timer speichern</button>
+            <button className="ghost-button" onClick={() => { setSaleEnd(""); }} data-testid="clear-sale-button">Zurücksetzen</button>
+          </div>
+          {saleSaved && <p className="sale-ok" data-testid="sale-saved">{saleSaved}</p>}
+          <p className="sale-hint">Tipp: Leer speichern schaltet den Timer aus. Rabatte legst du pro Angebot im Tab „Angebote" fest.</p>
         </div>
       </>}
     </motion.div>

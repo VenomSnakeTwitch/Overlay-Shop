@@ -132,7 +132,7 @@ async def send_email(*, to: str, subject: str, html: str, reply_to: Optional[str
 async def send_purchase_email(order: dict, order_id: str):
     c = order.get("customer", {})
     items = order.get("items", [])
-    total = sum(i.get("price", 0) for i in items)
+    total = order.get("total") or sum(i.get("price", 0) for i in items)
     subject = f"Neue Bestellung: {len(items)} Artikel" if len(items) != 1 else f"Neue Bestellung: {items[0]['name']}"
     item_rows = "".join(
         f'<tr><td style="padding:6px 0;font-size:13px">{escape(i["name"])}</td>'
@@ -167,6 +167,8 @@ class Offer(BaseModel):
     image: str
     featured: bool = False
     active: bool = True
+    discount: int = 0
+    badge: str = ""
 
 class Login(BaseModel):
     email: str
@@ -189,6 +191,14 @@ class OfferUpdate(BaseModel):
     image: str
     featured: bool = False
     active: bool = True
+    discount: int = Field(0, ge=0, le=90)
+    badge: str = ""
+
+class SiteSettings(BaseModel):
+    sale_ends_at: Optional[str] = None
+
+def final_price(offer: dict) -> float:
+    return round(offer["price"] * (1 - (offer.get("discount") or 0) / 100), 2)
 
 def admin_token() -> str:
     return jwt.encode({"sub": "admin", "exp": datetime.now(timezone.utc) + timedelta(hours=8)}, JWT_SECRET, algorithm="HS256")
@@ -224,9 +234,9 @@ def optional_customer(authorization: Optional[str]) -> Optional[dict]:
 async def seed_offers():
     if await db.offers.count_documents({}) == 0:
         await db.offers.insert_many([
-            {"id": "overlay-pack", "name": "Signalframe Overlay Pack", "description": "Ein komplettes, animiertes OBS-Overlay für deinen nächsten Stream.", "price": 149, "category": "OVERLAYS", "image": "https://images.unsplash.com/photo-1636489953081-c4ebbd50fa3a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHwzfHxnYW1pbmclMjBvdmVybGF5JTIwZXNwb3J0cyUyMHN0cmVhbWluZyUyMHNldHVwJTIwcmdiJTIwZGFyayUyMG5lb258ZW58MHx8fHwxNzkwNjg0ODgzfDA&ixlib=rb-4.1.0&q=85", "featured": True, "active": True},
-            {"id": "brand-kit", "name": "Blackmark Brand Kit", "description": "Logo, Farben und Panels, die deinen Kanal unverwechselbar machen.", "price": 89, "category": "BRANDING", "image": "https://images.unsplash.com/photo-1620825937374-87fc7d6bddc2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHxfHxlc3BvcnRzJTIwbG9nbyUyMHN0cmVhbWluZ3xlbnwwfHx8fDE3OTA2ODQ4ODN8MA&ixlib=rb-4.1.0&q=85", "featured": False, "active": True},
-            {"id": "music-pack", "name": "Nightdrive Music Pack", "description": "Individuelle Jingles und Loops ohne Copyright-Stress für deine Show.", "price": 59, "category": "MUSIC", "image": "https://images.unsplash.com/photo-1518972559570-7cc1309f3229?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxtdXNpYyUyMHByb2R1Y2VyJTIwc3R1ZGlvJTIwYXVkaW8lMjBuZW9uJTIwc3ludGhlc2l6ZXIlMjBnYW1pbmd8ZW58MHx8fHwxNzkwNjg0ODk2fDA&ixlib=rb-4.1.0&q=85", "featured": False, "active": True},
+            {"id": "overlay-pack", "name": "Signalframe Overlay Pack", "description": "Ein komplettes, animiertes OBS-Overlay für deinen nächsten Stream.", "price": 149, "category": "OVERLAYS", "image": "https://images.unsplash.com/photo-1636489953081-c4ebbd50fa3a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHwzfHxnYW1pbmclMjBvdmVybGF5JTIwZXNwb3J0cyUyMHN0cmVhbWluZyUyMHNldHVwJTIwcmdiJTIwZGFyayUyMG5lb258ZW58MHx8fHwxNzkwNjg0ODgzfDA&ixlib=rb-4.1.0&q=85", "featured": True, "active": True, "discount": 0, "badge": ""},
+            {"id": "brand-kit", "name": "Blackmark Brand Kit", "description": "Logo, Farben und Panels, die deinen Kanal unverwechselbar machen.", "price": 89, "category": "BRANDING", "image": "https://images.unsplash.com/photo-1620825937374-87fc7d6bddc2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHxfHxlc3BvcnRzJTIwbG9nbyUyMHN0cmVhbWluZ3xlbnwwfHx8fDE3OTA2ODQ4ODN8MA&ixlib=rb-4.1.0&q=85", "featured": False, "active": True, "discount": 0, "badge": ""},
+            {"id": "music-pack", "name": "Nightdrive Music Pack", "description": "Individuelle Jingles und Loops ohne Copyright-Stress für deine Show.", "price": 59, "category": "MUSIC", "image": "https://images.unsplash.com/photo-1518972559570-7cc1309f3229?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxtdXNpYyUyMHByb2R1Y2VyJTIwc3R1ZGlvJTIwYXVkaW8lMjBuZW9uJTIwc3ludGhlc2l6ZXIlMjBnYW1pbmd8ZW58MHx8fHwxNzkwNjg0ODk2fDA&ixlib=rb-4.1.0&q=85", "featured": False, "active": True, "discount": 0, "badge": ""},
         ])
 
 async def paypal_access_token():
@@ -244,6 +254,22 @@ async def startup():
 
 @api_router.get("/offers", response_model=List[Offer])
 async def offers(): return await db.offers.find({"active": True}, {"_id": 0}).to_list(100)
+
+@api_router.get("/settings")
+async def get_settings():
+    doc = await db.settings.find_one({"id": "site"}, {"_id": 0})
+    return {"sale_ends_at": (doc or {}).get("sale_ends_at")}
+
+@api_router.put("/admin/settings")
+async def put_settings(data: SiteSettings, authorization: Optional[str] = Header(None)):
+    require_admin(authorization)
+    if data.sale_ends_at:
+        try:
+            datetime.fromisoformat(data.sale_ends_at.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(400, "Ungültiges Datum")
+    await db.settings.update_one({"id": "site"}, {"$set": {"id": "site", "sale_ends_at": data.sale_ends_at}}, upsert=True)
+    return {"sale_ends_at": data.sale_ends_at}
 
 @api_router.post("/auth/login")
 async def login(data: Login):
@@ -368,14 +394,14 @@ async def create_order(data: CartCheckout, authorization: Optional[str] = Header
     if any(o["price"] <= 0 for o in offers_found): raise HTTPException(400, "Ein Angebot im Warenkorb hat keinen gültigen Preis (0 €). Bitte kontaktiere den Shop-Betreiber.")
     token = await paypal_access_token()
     if not token: raise HTTPException(502, "PayPal konnte nicht erreicht werden")
-    total = sum(o["price"] for o in offers_found)
-    units = [{"reference_id": o["id"], "description": o["name"], "amount": {"currency_code": "EUR", "value": f"{o['price']:.2f}"}} for o in offers_found]
+    total = sum(final_price(o) for o in offers_found)
+    units = [{"reference_id": o["id"], "description": o["name"], "amount": {"currency_code": "EUR", "value": f"{final_price(o):.2f}"}} for o in offers_found]
     order_payload = {"intent": "CAPTURE", "purchase_units": units, "application_context": {"brand_name": "BLACKSOLID", "user_action": "PAY_NOW", "return_url": os.environ["PAYPAL_RETURN_URL"], "cancel_url": os.environ["PAYPAL_CANCEL_URL"]}}
     order = await asyncio.to_thread(requests.post, f"{os.environ['PAYPAL_BASE_URL']}/v2/checkout/orders", json=order_payload, headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "Prefer": "return=representation"})
     if order.status_code >= 400: raise HTTPException(502, "PayPal-Bestellung konnte nicht erstellt werden")
     result = order.json()
     customer = optional_customer(authorization)
-    doc = {"paypal_id": result["id"], "items": [{"offer_id": o["id"], "name": o["name"], "price": o["price"]} for o in offers_found], "total": total, "customer": {"name": data.name, "email": data.email, "notes": data.notes}, "status": "created", "created_at": datetime.now(timezone.utc).isoformat()}
+    doc = {"paypal_id": result["id"], "items": [{"offer_id": o["id"], "name": o["name"], "price": final_price(o)} for o in offers_found], "total": total, "customer": {"name": data.name, "email": data.email, "notes": data.notes}, "status": "created", "created_at": datetime.now(timezone.utc).isoformat()}
     if customer: doc["user_id"] = customer["sub"].split(":", 1)[1]
     await db.orders.insert_one(doc)
     approval = next((link["href"] for link in result.get("links", []) if link["rel"] == "approve"), None)
