@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import Lenis from "lenis";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { ArrowUpRight, Check, ChevronRight, CreditCard, Headphones, LayoutTemplate, LockKeyhole, Menu, Pencil, Radio, ShieldCheck, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronRight, CreditCard, Headphones, LayoutTemplate, LockKeyhole, Menu, Pencil, Plus, Radio, ShieldCheck, Sparkles, Trash2, X } from "lucide-react";
 import "@/App.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -34,6 +34,22 @@ function App() {
   }, []);
 
   useEffect(() => { loadOffers(); const orderId = new URLSearchParams(window.location.search).get("token"); if (orderId) capture(orderId); }, []);
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes("session_id=")) {
+      const sid = hash.split("session_id=")[1].split("&")[0];
+      axios.post(`${API}/auth/google-session`, { session_id: sid }, { withCredentials: true })
+        .then((r) => { localStorage.setItem("overlay_admin_token", r.data.token); setToken(r.data.token); setAdmin(true); setNotice(`Willkommen zurück, ${r.data.name || "Admin"}.`); })
+        .catch(() => setNotice("Google-Anmeldung fehlgeschlagen oder kein Admin-Konto."))
+        .finally(() => window.history.replaceState({}, "", window.location.pathname));
+      return;
+    }
+    if (!localStorage.getItem("overlay_admin_token")) {
+      axios.get(`${API}/auth/me`, { withCredentials: true })
+        .then((r) => { localStorage.setItem("overlay_admin_token", r.data.token); setToken(r.data.token); })
+        .catch(() => {});
+    }
+  }, []);
   async function loadOffers() { try { setOffers((await axios.get(`${API}/offers`)).data); } catch { setNotice("Der Shop konnte gerade nicht geladen werden."); } }
   async function capture(orderId) { try { await axios.post(`${API}/paypal/capture/${orderId}`); setNotice("Zahlung erfolgreich bestätigt. Wir melden uns gleich bei dir."); window.history.replaceState({}, "", "/"); } catch { setNotice("Die Zahlung wird noch geprüft. Bitte bewahre deine PayPal-Bestätigung auf."); } }
 
@@ -168,13 +184,23 @@ function Checkout({ offer, onClose, onNotice }) {
 function Login({ onClose, onSuccess }) {
   const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState("");
   async function submit(e) { e.preventDefault(); try { const result = await axios.post(`${API}/auth/login`, { email, password }); localStorage.setItem("overlay_admin_token", result.data.token); onSuccess(result.data.token); } catch { setError("Zugangsdaten nicht erkannt."); } }
+  function googleLogin() {
+    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    const redirectUrl = window.location.origin + "/";
+    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  }
   return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
     <motion.div className="login-modal" data-testid="admin-login-modal" initial={{ opacity: 0, y: 40, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.45, ease }}>
       <button className="modal-close" onClick={onClose} data-testid="admin-login-close"><X/></button>
       <div className="login-icon"><LockKeyhole/></div>
       <div className="modal-kicker">RESTRICTED AREA</div>
       <h2>Control <em>Room.</em></h2>
-      <p>Verwalte deine aktiven Angebote und Preise.</p>
+      <p>Verwalte deine Angebote, Preise und Bestellungen.</p>
+      <button type="button" className="google-button" onClick={googleLogin} data-testid="google-login-button">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+        Mit Google anmelden
+      </button>
+      <div className="login-divider"><span>oder mit E-Mail</span></div>
       <form onSubmit={submit}>
         <label>E-Mail<input required type="email" value={email} onChange={e => setEmail(e.target.value)} data-testid="admin-email-input"/></label>
         <label>Passwort<input required type="password" value={password} onChange={e => setPassword(e.target.value)} data-testid="admin-password-input"/></label>
@@ -185,26 +211,85 @@ function Login({ onClose, onSuccess }) {
   </motion.div>;
 }
 
+const emptyDraft = { name: "", description: "", price: "", category: "OVERLAYS", image: "", featured: false };
+
 function Admin({ token, onClose, onOffers }) {
-  const [items, setItems] = useState([]); const [editing, setEditing] = useState(null);
-  useEffect(() => { axios.get(`${API}/admin/offers`, { headers: { Authorization: `Bearer ${token}` } }).then(r => setItems(r.data)); }, [token]);
-  async function save(item) { await axios.put(`${API}/admin/offers/${item.id}`, item, { headers: { Authorization: `Bearer ${token}` } }); setEditing(null); onOffers(); }
+  const [tab, setTab] = useState("offers");
+  const [items, setItems] = useState([]); const [orders, setOrders] = useState([]);
+  const [editing, setEditing] = useState(null); const [creating, setCreating] = useState(false);
+  const [draft, setDraft] = useState(emptyDraft);
+  const headers = { Authorization: `Bearer ${token}` };
+
+  async function load() {
+    setItems((await axios.get(`${API}/admin/offers`, { headers })).data);
+    setOrders((await axios.get(`${API}/admin/orders`, { headers })).data);
+  }
+  useEffect(() => { load().catch(() => {}); }, [token]);
+
+  async function save(item) { await axios.put(`${API}/admin/offers/${item.id}`, item, { headers }); setEditing(null); load(); onOffers(); }
+  async function remove(item) { await axios.delete(`${API}/admin/offers/${item.id}`, { headers }); load(); onOffers(); }
+  async function create(e) { e.preventDefault(); await axios.post(`${API}/admin/offers`, { ...draft, price: Number(draft.price) || 0, active: true }, { headers }); setCreating(false); setDraft(emptyDraft); load(); onOffers(); }
+
   return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
     <motion.div className="admin-modal" data-testid="admin-panel" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease }}>
-      <div className="admin-top"><div><div className="modal-kicker">BLACKSOLID / CONTROL ROOM</div><h2>Offer <em>systems.</em></h2></div><button className="modal-close" onClick={onClose} data-testid="admin-close"><X/></button></div>
-      <p className="modal-intro">Ändere Namen, Beschreibungen, Preise und Sichtbarkeit direkt hier.</p>
-      <div className="admin-list">{items.map(item => editing?.id === item.id ?
-        <div className="admin-edit" key={item.id}>
-          <input value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} data-testid={`edit-name-${item.id}`}/>
-          <textarea value={editing.description} onChange={e => setEditing({...editing, description: e.target.value})}/>
-          <div className="edit-row"><input type="number" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} data-testid={`edit-price-${item.id}`}/><button className="primary-button" onClick={() => save(editing)} data-testid={`save-offer-${item.id}`}>Save changes</button></div>
-        </div> :
-        <div className="admin-row" key={item.id} data-testid={`admin-offer-${item.id}`}>
-          <div><span className="category-tag">{item.category}</span><h3>{item.name}</h3></div>
-          <strong>€{item.price.toFixed(2).replace(".00", "")}</strong>
-          <button onClick={() => setEditing(item)} data-testid={`edit-offer-${item.id}`}><Pencil size={16}/></button>
-        </div>)}
+      <div className="admin-top"><div><div className="modal-kicker">BLACKSOLID / CONTROL ROOM</div><h2>Command <em>station.</em></h2></div><button className="modal-close" onClick={onClose} data-testid="admin-close"><X/></button></div>
+      <div className="admin-tabs">
+        <button className={tab === "offers" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("offers")} data-testid="admin-tab-offers">Angebote</button>
+        <button className={tab === "orders" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("orders")} data-testid="admin-tab-orders">Bestellungen {orders.length > 0 && <span className="tab-count">{orders.length}</span>}</button>
       </div>
+
+      {tab === "offers" ? <>
+        <p className="modal-intro">Lege neue Angebote an, bearbeite Preise oder lösche, was du nicht mehr brauchst.</p>
+        {!creating && <button className="primary-button new-offer-btn" onClick={() => setCreating(true)} data-testid="new-offer-button"><Plus size={15}/> Neues Angebot</button>}
+        {creating && <form className="admin-create" onSubmit={create} data-testid="create-offer-form">
+          <input required placeholder="Name" value={draft.name} onChange={e => setDraft({...draft, name: e.target.value})} data-testid="create-offer-name"/>
+          <textarea required placeholder="Beschreibung" value={draft.description} onChange={e => setDraft({...draft, description: e.target.value})} data-testid="create-offer-description"/>
+          <div className="edit-row">
+            <input required type="number" min="0" step="0.01" placeholder="Preis in EUR" value={draft.price} onChange={e => setDraft({...draft, price: e.target.value})} data-testid="create-offer-price"/>
+            <select value={draft.category} onChange={e => setDraft({...draft, category: e.target.value})} data-testid="create-offer-category">
+              <option value="OVERLAYS">OVERLAYS</option><option value="BRANDING">BRANDING</option><option value="MUSIC">MUSIC</option>
+            </select>
+          </div>
+          <input required placeholder="Bild-URL (https://...)" value={draft.image} onChange={e => setDraft({...draft, image: e.target.value})} data-testid="create-offer-image"/>
+          <label className="check-row"><input type="checkbox" checked={draft.featured} onChange={e => setDraft({...draft, featured: e.target.checked})} data-testid="create-offer-featured"/> Als Featured hervorheben</label>
+          <div className="edit-row">
+            <button type="submit" className="primary-button" data-testid="create-offer-submit">Angebot anlegen</button>
+            <button type="button" className="ghost-button" onClick={() => setCreating(false)} data-testid="create-offer-cancel">Abbrechen</button>
+          </div>
+        </form>}
+        <div className="admin-list">{items.map(item => editing?.id === item.id ?
+          <div className="admin-edit" key={item.id}>
+            <input value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} data-testid={`edit-name-${item.id}`}/>
+            <textarea value={editing.description} onChange={e => setEditing({...editing, description: e.target.value})} data-testid={`edit-description-${item.id}`}/>
+            <div className="edit-row"><input type="number" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} data-testid={`edit-price-${item.id}`}/><button className="primary-button" onClick={() => save(editing)} data-testid={`save-offer-${item.id}`}>Speichern</button><button className="ghost-button" onClick={() => setEditing(null)} data-testid={`cancel-edit-${item.id}`}>Abbrechen</button></div>
+          </div> :
+          <div className="admin-row" key={item.id} data-testid={`admin-offer-${item.id}`}>
+            <div><span className="category-tag">{item.category}</span><h3>{item.name}</h3></div>
+            <strong>€{item.price.toFixed(2).replace(".00", "")}</strong>
+            <div className="row-actions">
+              <button onClick={() => setEditing(item)} data-testid={`edit-offer-${item.id}`}><Pencil size={16}/></button>
+              <button className="delete-button" onClick={() => remove(item)} data-testid={`delete-offer-${item.id}`}><Trash2 size={16}/></button>
+            </div>
+          </div>)}
+        </div>
+      </> : <>
+        <p className="modal-intro">Alle eingegangenen Käufe mit Kundendaten und Zahlungsstatus.</p>
+        <div className="admin-list" data-testid="orders-list">
+          {orders.length === 0 && <p className="orders-empty" data-testid="orders-empty">Noch keine Bestellungen eingegangen.</p>}
+          {orders.map(o => <div className="order-row" key={o.paypal_id} data-testid={`order-row-${o.paypal_id}`}>
+            <div className="order-main">
+              <strong>{o.offer_name || o.offer_id}</strong>
+              <span>{o.customer?.name} · {o.customer?.email}</span>
+              {o.customer?.notes && <em>„{o.customer.notes}“</em>}
+            </div>
+            <div className="order-side">
+              {o.price != null && <b className="order-price">€{Number(o.price).toFixed(2).replace(".00", "")}</b>}
+              <span className={`status-badge ${o.status === "COMPLETED" ? "ok" : "pending"}`} data-testid={`order-status-${o.paypal_id}`}>{o.status === "COMPLETED" ? "BEZAHLT" : "OFFEN"}</span>
+              <small>{o.created_at ? new Date(o.created_at).toLocaleString("de-DE") : ""}</small>
+            </div>
+          </div>)}
+        </div>
+      </>}
     </motion.div>
   </motion.div>;
 }

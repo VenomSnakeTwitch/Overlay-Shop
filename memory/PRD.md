@@ -19,9 +19,10 @@ React SPA (Frontend) + FastAPI (Backend) + MongoDB. Custom JWT Admin-Auth. PayPa
 
 ## Backlog
 - P0: —
-- P1: Bestellübersicht für Admin (Käufe einsehen), E-Mail-Benachrichtigung bei Kauf
-- P2: Award-Level Redesign (kinetic hero, scroll reveals, smooth scrolling), Produktbilder-Upload, neue Angebote im Admin anlegen (aktuell nur bearbeiten)
+- P1: —
+- P2: Produktbilder-Upload (Object Storage), Kunden-Konten mit Kaufhistorie
 
-## Nächste Tasks
-- Design-Upgrade nach User-Freigabe
-- Admin: Angebote hinzufügen/löschen
+## Erledigt 2026-09 (zusätzlich)
+- Admin: Angebote anlegen/löschen, Bestellübersicht mit Kundendaten + Zahlungsstatus, Kauf-E-Mail an Admin bei erfolgreicher PayPal-Zahlung (managed Resend)
+- Google Sign-In für Admin (Emergent-managed OAuth, Admin-Allowlist = ADMIN_EMAIL, Passwort-Login bleibt Fallback). Test-Playbook: /app/auth_testing.md
+- Claude-Integration vom User abgelehnt
