@@ -385,3 +385,49 @@ textarea { min-height: 90px; resize: vertical; }
 .google-button:hover { background: rgba(240, 244, 248, 0.12); border-color: rgba(0, 240, 255, 0.4); box-shadow: 0 0 18px rgba(0, 240, 255, 0.12); }
 .login-divider { display: flex; align-items: center; gap: 14px; margin: 22px 0 4px; color: var(--muted); font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; }
 .login-divider::before, .login-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+/* ---------- CART / CUSTOMER ---------- */
+.nav-icon-btn {
+  display: flex; align-items: center; gap: 8px;
+  font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--muted); background: none; border: 1px solid transparent; padding: 9px 12px; cursor: pointer;
+  transition: color 0.25s, border-color 0.25s;
+}
+.nav-icon-btn:hover { color: var(--cyan); }
+.cart-btn { position: relative; }
+.cart-count { background: var(--red); color: #fff; font-size: 9px; font-weight: 800; min-width: 17px; height: 17px; border-radius: 20px; display: grid; place-items: center; letter-spacing: 0; box-shadow: 0 0 10px rgba(255, 42, 95, 0.6); }
+
+.cart-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(430px, 100vw); z-index: 110;
+  background: rgba(14, 18, 27, 0.97); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(0, 240, 255, 0.25); box-shadow: -30px 0 80px rgba(0, 0, 0, 0.6);
+  display: flex; flex-direction: column; padding: 36px 30px;
+}
+.cart-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 26px; }
+.cart-top h2 { font-family: "Unbounded", sans-serif; font-weight: 800; font-size: 24px; text-transform: uppercase; margin-top: 12px; }
+.cart-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.cart-item { display: flex; align-items: center; gap: 14px; background: rgba(7, 9, 14, 0.6); border: 1px solid var(--border); padding: 12px 14px; }
+.cart-item img { width: 64px; height: 48px; object-fit: cover; clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px)); }
+.cart-item div { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cart-item strong { font-size: 13.5px; }
+.cart-item span { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--cyan); }
+.cart-item > button { background: none; border: none; color: var(--muted); cursor: pointer; transition: color 0.25s; }
+.cart-item > button:hover { color: var(--red); }
+.cart-footer { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 20px; }
+.cart-total { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.cart-total strong { font-family: "Unbounded", sans-serif; font-size: 22px; color: var(--cyan); text-shadow: 0 0 18px rgba(0, 240, 255, 0.4); }
+
+.checkout-items { border: 1px solid var(--border); background: rgba(7, 9, 14, 0.5); padding: 14px 16px; margin-bottom: 22px; }
+.checkout-item { display: flex; justify-content: space-between; gap: 14px; font-size: 13px; padding: 5px 0; color: var(--muted); }
+.checkout-item b { color: var(--text); font-family: "JetBrains Mono", monospace; }
+.checkout-item.total { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 10px; color: var(--text); }
+.checkout-item.total b { color: var(--cyan); }
+
+.order-delete { background: none; border: 1px solid var(--border); color: var(--muted); padding: 8px; cursor: pointer; }
+.logout-btn { margin-top: 22px; display: inline-flex; align-items: center; gap: 8px; }
+
+.upload-row { display: flex; align-items: center; gap: 14px; }
+.upload-preview { width: 84px; height: 56px; object-fit: cover; border: 1px solid var(--border); }
+.upload-btn { display: inline-flex; cursor: pointer; padding: 11px 18px; font-size: 10px; }
+.card-button.in-cart { color: var(--green); border-color: rgba(0, 255, 102, 0.4); }
+.card-button.in-cart:hover { color: #04121a; background: var(--green); border-color: var(--green); }

@@ -26,3 +26,6 @@ React SPA (Frontend) + FastAPI (Backend) + MongoDB. Custom JWT Admin-Auth. PayPa
 - Admin: Angebote anlegen/löschen, Bestellübersicht mit Kundendaten + Zahlungsstatus, Kauf-E-Mail an Admin bei erfolgreicher PayPal-Zahlung (managed Resend)
 - Google Sign-In für Admin (Emergent-managed OAuth, Admin-Allowlist = ADMIN_EMAIL, Passwort-Login bleibt Fallback). Test-Playbook: /app/auth_testing.md
 - Claude-Integration vom User abgelehnt
+- Warenkorb: Multi-Item-Cart (localStorage), Drawer mit Entfernen, „Kauf bestätigen" → ein PayPal-Order mit allen Items; Cart wird nach Zahlung geleert
+- Kundenkonten: Google-Login für Kunden (role=customer), „Meine Bestellungen"-Ansicht, Kunde kann offene (unbezahlte) Bestellungen löschen, bezahlte bleiben; Logout löscht Server-Session
+- Bild-Upload: Object Storage (Emergent), POST /api/admin/upload (nur Admin, max 8MB, JPG/PNG/WebP/GIF), Auslieferung via GET /api/files/{path}; Upload-Button im Create- und Edit-Formular mit Vorschau
