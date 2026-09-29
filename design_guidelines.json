@@ -1,0 +1,38 @@
+{
+  "app_type": "hybrid_fullstack",
+  "theme": "dark",
+  "styling": {
+    "palette": {
+      "primary": "#3B82F6",
+      "secondary": "#8B5CF6",
+      "accent": "#00F0FF",
+      "bg_dark": "#0A0B10",
+      "surface_dark": "#131622",
+      "surface_card": "#181D30",
+      "border_neon": "rgba(0, 240, 255, 0.3)",
+      "text_main": "#F8FAFC",
+      "text_muted": "#94A3B8"
+    },
+    "typography": {
+      "headings": "Outfit, sans-serif",
+      "body": "Inter, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    }
+  },
+  "image_urls": {
+    "hero_stream_setup": "https://images.unsplash.com/photo-1696710257827-75e2e5954059?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDR8MHwxfHNlYXJjaHwxfHxjeWJlcnB1bmslMjBzdHJlYW1lciUyMG5lb24lMjBnYW1pbmclMjBvdmVybGF5fGVufDB8fHx8MTc4ODkxMDAzMXww&ixlib=rb-4.1.0&q=85",
+    "esports_logo": "https://images.unsplash.com/photo-1548686304-5c3be888a00b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwxfHxlc3BvcnRzJTIwZ2FtaW5nJTIwbG9nbyUyMG1hc2NvdCUyMHN0cmVhbWluZ3xlbnwwfHx8fDE3OTA2NzkwMjd8MA&ixlib=rb-4.1.0&q=85",
+    "stream_music": "https://images.unsplash.com/photo-1616681255209-368a2cd3e643?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwyfHxkaiUyMHR1cm50YWJsZSUyMHZpbnlsJTIwbmVvbnxlbnwwfHx8fDE3OTA2NzkwMzB8MA&ixlib=rb-4.1.0&q=85"
+  },
+  "key_features": [
+    "Public storefront with editable offers and prices",
+    "Protected Admin panel for managing offers and live price updates",
+    "Three initial service categories: Stream Overlays, Logos & Branding, Stream Music & Jingles",
+    "Customer details checkout flow with PayPal live payment handoff",
+    "Gaming OBS streaming visual style with neon blue/purple accents and dark theme"
+  ],
+  "accessibility_and_testing": {
+    "data_testid_required": true,
+    "apca_contrast_compliance": true
+  }
+}
