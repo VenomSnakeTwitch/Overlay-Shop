@@ -158,7 +158,7 @@ async def send_purchase_email(order: dict, order_id: str):
         f'<p style="font-size:11px;color:#8B9BB4;margin:24px 0 0">Gesendet von {escape(EMAIL_FROM_NAME)}. Wir fragen niemals nach Passwoertern oder Kartendaten per E-Mail.</p>'
         '</td></tr></table></td></tr></table>'
     )
-    return await send_email(to=os.environ["ADMIN_EMAIL"], subject=subject, html=html)
+    return await send_email(to=os.environ.get("ORDER_EMAIL") or os.environ["ADMIN_EMAIL"], subject=subject, html=html)
 
 class Offer(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
