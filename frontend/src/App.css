@@ -422,6 +422,8 @@ textarea { min-height: 90px; resize: vertical; }
 .checkout-item b { color: var(--text); font-family: "JetBrains Mono", monospace; }
 .checkout-item.total { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 10px; color: var(--text); }
 .checkout-item.total b { color: var(--cyan); }
+.logged-in-note { display: flex; align-items: center; gap: 8px; font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--green); border: 1px solid rgba(0, 255, 102, 0.25); background: rgba(0, 255, 102, 0.06); padding: 10px 14px; margin-bottom: 18px; }
+.logged-in-note svg { flex-shrink: 0; }
 
 .order-delete { background: none; border: 1px solid var(--border); color: var(--muted); padding: 8px; cursor: pointer; }
 .logout-btn { margin-top: 22px; display: inline-flex; align-items: center; gap: 8px; }

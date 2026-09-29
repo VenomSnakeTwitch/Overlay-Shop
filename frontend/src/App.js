@@ -155,7 +155,7 @@ function App() {
       <span className="footer-status"><span className="rec-dot"/> SYSTEMS ONLINE</span>
     </footer>
 
-    {cartOpen && <CartDrawer items={cartItems} onClose={() => setCartOpen(false)} onRemove={(id) => setCart(cart.filter((c) => c !== id))} onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }}/>}
+    {cartOpen && <CartDrawer items={cartItems} onClose={() => setCartOpen(false)} onRemove={(id) => setCart(cart.filter((c) => c !== id))} onCheckout={() => { if (!customer) { setCartOpen(false); setCustomerLoginOpen(true); setNotice("Bitte melde dich zuerst mit Google an – danach geht es direkt weiter."); return; } setCartOpen(false); setCheckoutOpen(true); }}/>}
     {checkoutOpen && <Checkout items={cartItems} customer={customer} onClose={() => setCheckoutOpen(false)} onNotice={setNotice}/>}
     {customerLoginOpen && <CustomerLogin onClose={() => setCustomerLoginOpen(false)}/>}
     {accountOpen && customer && <Account customer={customer} onClose={() => setAccountOpen(false)} onLogout={logout}/>}
@@ -243,8 +243,7 @@ function Checkout({ items, customer, onClose, onNotice }) {
   async function submit(e) {
     e.preventDefault(); setLoading(true);
     try {
-      const headers = customer?.token ? { Authorization: `Bearer ${customer.token}` } : {};
-      const result = await axios.post(`${API}/paypal/create-order`, { offer_ids: items.map((i) => i.id), ...form }, { headers });
+      const result = await axios.post(`${API}/paypal/create-order`, { offer_ids: items.map((i) => i.id), ...form }, { headers: { Authorization: `Bearer ${customer.token}` } });
       window.location.href = result.data.approval_url;
     } catch (err) { onNotice(err.response?.data?.detail || "PayPal konnte die Bestellung nicht starten. Bitte prüfe deine Eingaben."); setLoading(false); }
   }
@@ -258,8 +257,9 @@ function Checkout({ items, customer, onClose, onNotice }) {
         <div className="checkout-item total"><span>Gesamt</span><b data-testid="checkout-total">{fmt(total)}</b></div>
       </div>
       <form onSubmit={submit}>
+        <p className="logged-in-note" data-testid="checkout-account"><User size={13}/> Angemeldet als {customer.email}</p>
         <label>Name<input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Dein Name" data-testid="customer-name-input"/></label>
-        <label>E-Mail<input required type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="you@creator.com" data-testid="customer-email-input"/></label>
+        <label>E-Mail<input required type="email" value={form.email} readOnly data-testid="customer-email-input"/></label>
         <label>Brief / Notiz <span>(optional)</span><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Erzähl uns kurz von deinem Kanal..." data-testid="customer-notes-input"/></label>
         <button className="primary-button full" disabled={loading} data-testid="paypal-submit-button"><CreditCard size={17}/>{loading ? "Weiterleitung..." : "Mit PayPal bezahlen"}</button>
         <small className="secure-note"><ShieldCheck size={14}/> Du wirst sicher zu PayPal weitergeleitet. Zahlung in EUR.</small>

@@ -225,12 +225,6 @@ def require_customer(authorization: Optional[str]) -> dict:
     except Exception:
         raise HTTPException(401, "Sitzung abgelaufen")
 
-def optional_customer(authorization: Optional[str]) -> Optional[dict]:
-    try:
-        return require_customer(authorization)
-    except HTTPException:
-        return None
-
 async def seed_offers():
     if await db.offers.count_documents({}) == 0:
         await db.offers.insert_many([
@@ -400,9 +394,8 @@ async def create_order(data: CartCheckout, authorization: Optional[str] = Header
     order = await asyncio.to_thread(requests.post, f"{os.environ['PAYPAL_BASE_URL']}/v2/checkout/orders", json=order_payload, headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "Prefer": "return=representation"})
     if order.status_code >= 400: raise HTTPException(502, "PayPal-Bestellung konnte nicht erstellt werden")
     result = order.json()
-    customer = optional_customer(authorization)
-    doc = {"paypal_id": result["id"], "items": [{"offer_id": o["id"], "name": o["name"], "price": final_price(o)} for o in offers_found], "total": total, "customer": {"name": data.name, "email": data.email, "notes": data.notes}, "status": "created", "created_at": datetime.now(timezone.utc).isoformat()}
-    if customer: doc["user_id"] = customer["sub"].split(":", 1)[1]
+    customer = require_customer(authorization)
+    doc = {"paypal_id": result["id"], "items": [{"offer_id": o["id"], "name": o["name"], "price": final_price(o)} for o in offers_found], "total": total, "customer": {"name": data.name, "email": customer["email"], "notes": data.notes}, "user_id": customer["sub"].split(":", 1)[1], "status": "created", "created_at": datetime.now(timezone.utc).isoformat()}
     await db.orders.insert_one(doc)
     approval = next((link["href"] for link in result.get("links", []) if link["rel"] == "approve"), None)
     return {"order_id": result["id"], "approval_url": approval}
