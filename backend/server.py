@@ -184,7 +184,7 @@ class CartCheckout(BaseModel):
 class OfferUpdate(BaseModel):
     name: str
     description: str
-    price: float
+    price: float = Field(gt=0)
     category: str
     image: str
     featured: bool = False
@@ -365,6 +365,7 @@ async def delete_my_order(paypal_id: str, authorization: Optional[str] = Header(
 async def create_order(data: CartCheckout, authorization: Optional[str] = Header(None)):
     offers_found = await db.offers.find({"id": {"$in": data.offer_ids}, "active": True}, {"_id": 0}).to_list(50)
     if not offers_found: raise HTTPException(404, "Keine gültigen Angebote im Warenkorb")
+    if any(o["price"] <= 0 for o in offers_found): raise HTTPException(400, "Ein Angebot im Warenkorb hat keinen gültigen Preis (0 €). Bitte kontaktiere den Shop-Betreiber.")
     token = await paypal_access_token()
     if not token: raise HTTPException(502, "PayPal konnte nicht erreicht werden")
     total = sum(o["price"] for o in offers_found)

@@ -230,7 +230,7 @@ function Checkout({ items, customer, onClose, onNotice }) {
       const headers = customer?.token ? { Authorization: `Bearer ${customer.token}` } : {};
       const result = await axios.post(`${API}/paypal/create-order`, { offer_ids: items.map((i) => i.id), ...form }, { headers });
       window.location.href = result.data.approval_url;
-    } catch { onNotice("PayPal konnte die Bestellung nicht starten. Bitte prüfe deine Eingaben."); setLoading(false); }
+    } catch (err) { onNotice(err.response?.data?.detail || "PayPal konnte die Bestellung nicht starten. Bitte prüfe deine Eingaben."); setLoading(false); }
   }
   return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
     <motion.div className="checkout-modal" data-testid="checkout-modal" initial={{ opacity: 0, y: 40, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.45, ease }}>
@@ -351,6 +351,7 @@ function Admin({ token, onClose, onOffers }) {
   const [items, setItems] = useState([]); const [orders, setOrders] = useState([]);
   const [editing, setEditing] = useState(null); const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
+  const [formError, setFormError] = useState("");
   const headers = { Authorization: `Bearer ${token}` };
 
   async function load() {
@@ -359,9 +360,9 @@ function Admin({ token, onClose, onOffers }) {
   }
   useEffect(() => { load().catch(() => {}); }, [token]);
 
-  async function save(item) { await axios.put(`${API}/admin/offers/${item.id}`, item, { headers }); setEditing(null); load(); onOffers(); }
+  async function save(item) { try { await axios.put(`${API}/admin/offers/${item.id}`, item, { headers }); setEditing(null); setFormError(""); load(); onOffers(); } catch (err) { setFormError(err.response?.data?.detail?.[0]?.msg ? "Preis muss über 0 € liegen." : (err.response?.data?.detail || "Speichern fehlgeschlagen.")); } }
   async function remove(item) { await axios.delete(`${API}/admin/offers/${item.id}`, { headers }); load(); onOffers(); }
-  async function create(e) { e.preventDefault(); await axios.post(`${API}/admin/offers`, { ...draft, price: Number(draft.price) || 0, active: true }, { headers }); setCreating(false); setDraft(emptyDraft); load(); onOffers(); }
+  async function create(e) { e.preventDefault(); try { await axios.post(`${API}/admin/offers`, { ...draft, price: Number(draft.price) || 0, active: true }, { headers }); setCreating(false); setDraft(emptyDraft); setFormError(""); load(); onOffers(); } catch { setFormError("Angebot konnte nicht angelegt werden. Preis muss über 0 € liegen."); } }
 
   return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
     <motion.div className="admin-modal" data-testid="admin-panel" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease }}>
@@ -373,12 +374,13 @@ function Admin({ token, onClose, onOffers }) {
 
       {tab === "offers" ? <>
         <p className="modal-intro">Lege neue Angebote an, bearbeite Preise oder lösche, was du nicht mehr brauchst.</p>
+        {formError && <div className="form-error" data-testid="admin-form-error">{formError}</div>}
         {!creating && <button className="primary-button new-offer-btn" onClick={() => setCreating(true)} data-testid="new-offer-button"><Plus size={15}/> Neues Angebot</button>}
         {creating && <form className="admin-create" onSubmit={create} data-testid="create-offer-form">
           <input required placeholder="Name" value={draft.name} onChange={e => setDraft({...draft, name: e.target.value})} data-testid="create-offer-name"/>
           <textarea required placeholder="Beschreibung" value={draft.description} onChange={e => setDraft({...draft, description: e.target.value})} data-testid="create-offer-description"/>
           <div className="edit-row">
-            <input required type="number" min="0" step="0.01" placeholder="Preis in EUR" value={draft.price} onChange={e => setDraft({...draft, price: e.target.value})} data-testid="create-offer-price"/>
+            <input required type="number" min="0.01" step="0.01" placeholder="Preis in EUR" value={draft.price} onChange={e => setDraft({...draft, price: e.target.value})} data-testid="create-offer-price"/>
             <select value={draft.category} onChange={e => setDraft({...draft, category: e.target.value})} data-testid="create-offer-category">
               <option value="OVERLAYS">OVERLAYS</option><option value="BRANDING">BRANDING</option><option value="MUSIC">MUSIC</option>
             </select>
@@ -396,7 +398,7 @@ function Admin({ token, onClose, onOffers }) {
             <input value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} data-testid={`edit-name-${item.id}`}/>
             <textarea value={editing.description} onChange={e => setEditing({...editing, description: e.target.value})} data-testid={`edit-description-${item.id}`}/>
             <ImageUpload token={token} value={editing.image} onChange={(url) => setEditing({...editing, image: url})} testid={`edit-upload-${item.id}`}/>
-            <div className="edit-row"><input type="number" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} data-testid={`edit-price-${item.id}`}/><button className="primary-button" onClick={() => save(editing)} data-testid={`save-offer-${item.id}`}>Speichern</button><button className="ghost-button" onClick={() => setEditing(null)} data-testid={`cancel-edit-${item.id}`}>Abbrechen</button></div>
+            <div className="edit-row"><input type="number" min="0.01" step="0.01" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} data-testid={`edit-price-${item.id}`}/><button className="primary-button" onClick={() => save(editing)} data-testid={`save-offer-${item.id}`}>Speichern</button><button className="ghost-button" onClick={() => setEditing(null)} data-testid={`cancel-edit-${item.id}`}>Abbrechen</button></div>
           </div> :
           <div className="admin-row" key={item.id} data-testid={`admin-offer-${item.id}`}>
             <div><span className="category-tag">{item.category}</span><h3>{item.name}</h3></div>

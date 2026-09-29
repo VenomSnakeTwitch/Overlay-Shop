@@ -29,3 +29,4 @@ React SPA (Frontend) + FastAPI (Backend) + MongoDB. Custom JWT Admin-Auth. PayPa
 - Warenkorb: Multi-Item-Cart (localStorage), Drawer mit Entfernen, „Kauf bestätigen" → ein PayPal-Order mit allen Items; Cart wird nach Zahlung geleert
 - Kundenkonten: Google-Login für Kunden (role=customer), „Meine Bestellungen"-Ansicht, Kunde kann offene (unbezahlte) Bestellungen löschen, bezahlte bleiben; Logout löscht Server-Session
 - Bild-Upload: Object Storage (Emergent), POST /api/admin/upload (nur Admin, max 8MB, JPG/PNG/WebP/GIF), Auslieferung via GET /api/files/{path}; Upload-Button im Create- und Edit-Formular mit Vorschau
+- 2026-09: BUGFIX — „PayPal konnte die Bestellung nicht starten": Ursache waren vom User auf 0 € gesetzte Preise (PayPal lehnt 0-€-Orders ab). Fix: Backend blockt 0-€-Checkout mit klarer Meldung, Admin kann keinen Preis ≤ 0 mehr speichern (Validierung gt=0 + min=0.01 im Formular), Frontend zeigt Backend-Fehlertext statt Generik-Meldung
