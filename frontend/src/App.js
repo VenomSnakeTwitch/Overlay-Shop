@@ -1,34 +1,212 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { ArrowUpRight, Check, ChevronRight, CircleUserRound, CreditCard, Headphones, LayoutTemplate, LockKeyhole, Menu, MonitorPlay, Pencil, Radio, ShieldCheck, Sparkles, X } from "lucide-react";
+import Lenis from "lenis";
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { ArrowUpRight, Check, ChevronRight, CreditCard, Headphones, LayoutTemplate, LockKeyhole, Menu, Pencil, Radio, ShieldCheck, Sparkles, X } from "lucide-react";
 import "@/App.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const icons = { OVERLAYS: LayoutTemplate, BRANDING: Sparkles, MUSIC: Headphones };
 const categories = ["ALL", "OVERLAYS", "BRANDING", "MUSIC"];
 
+const ease = [0.22, 1, 0.36, 1];
+const rise = { hidden: { opacity: 0, y: 48 }, show: { opacity: 1, y: 0, transition: { duration: 0.8, ease } } };
+const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.12 } } };
+
+function Clock() {
+  const [time, setTime] = useState("");
+  useEffect(() => { const tick = () => setTime(new Date().toLocaleTimeString("de-DE", { hour12: false })); tick(); const id = setInterval(tick, 1000); return () => clearInterval(id); }, []);
+  return <span className="hud-clock" data-testid="hud-clock">{time}</span>;
+}
+
 function App() {
   const [offers, setOffers] = useState([]); const [filter, setFilter] = useState("ALL"); const [selected, setSelected] = useState(null);
-  const [admin, setAdmin] = useState(false); const [loginOpen, setLoginOpen] = useState(false); const [mobileOpen, setMobileOpen] = useState(false); const [token, setToken] = useState(localStorage.getItem("overlay_admin_token"));
-  const [notice, setNotice] = useState(null); const [busy, setBusy] = useState(false);
+  const [admin, setAdmin] = useState(false); const [loginOpen, setLoginOpen] = useState(false); const [mobileOpen, setMobileOpen] = useState(false);
+  const [token, setToken] = useState(localStorage.getItem("overlay_admin_token"));
+  const [notice, setNotice] = useState(null);
+
+  useEffect(() => {
+    const lenis = new Lenis({ duration: 1.25, smoothWheel: true, anchors: true });
+    let raf;
+    const loop = (t) => { lenis.raf(t); raf = requestAnimationFrame(loop); };
+    raf = requestAnimationFrame(loop);
+    return () => { cancelAnimationFrame(raf); lenis.destroy(); };
+  }, []);
+
   useEffect(() => { loadOffers(); const orderId = new URLSearchParams(window.location.search).get("token"); if (orderId) capture(orderId); }, []);
   async function loadOffers() { try { setOffers((await axios.get(`${API}/offers`)).data); } catch { setNotice("Der Shop konnte gerade nicht geladen werden."); } }
   async function capture(orderId) { try { await axios.post(`${API}/paypal/capture/${orderId}`); setNotice("Zahlung erfolgreich bestätigt. Wir melden uns gleich bei dir."); window.history.replaceState({}, "", "/"); } catch { setNotice("Die Zahlung wird noch geprüft. Bitte bewahre deine PayPal-Bestätigung auf."); } }
+
   const visible = offers.filter((item) => filter === "ALL" || item.category === filter);
+
   return <div className="site-shell">
-    <nav className="nav" data-testid="main-navigation"><a className="brand" href="#top" data-testid="brand-home"><span className="brand-mark">B<span>S</span></span><span>BLACKSOLID<small>CREATIVE SUPPLY</small></span></a><div className={mobileOpen ? "nav-links mobile-open" : "nav-links"} style={mobileOpen ? {display:"flex", position:"absolute", top:76, left:20, right:20, background:"#111722", padding:18, flexDirection:"column", alignItems:"flex-start", gap:20} : undefined}><a href="#services" onClick={() => setMobileOpen(false)} data-testid="services-link">Services</a><a href="#process" onClick={() => setMobileOpen(false)} data-testid="process-link">Workflow</a><button className="admin-link" onClick={() => { setMobileOpen(false); token ? setAdmin(true) : setLoginOpen(true); }} data-testid="admin-open-button"><LockKeyhole size={14}/> Control Room</button></div><button className="mobile-menu" onClick={() => setMobileOpen(!mobileOpen)} data-testid="mobile-menu-button"><Menu size={20}/></button></nav>
-    <main id="top"><section className="hero" data-testid="hero-section"><div className="hero-copy"><div className="eyebrow"><span className="pulse-dot"/> CREATIVE SYSTEMS / 2025</div><h1>Make your stream<br/><em>impossible</em> to miss.</h1><p className="hero-sub">High-impact visuals, sound and identity for creators who refuse to blend in.</p><div className="hero-actions"><a href="#services" className="primary-button" data-testid="hero-shop-button">Explore the drop <ArrowUpRight size={17}/></a><span className="hero-note"><ShieldCheck size={16}/> PayPal secure checkout</span></div></div><div className="hero-visual"><div className="scanline"/><div className="hud-corner hud-tl"/><div className="hud-corner hud-br"/><img src="https://images.unsplash.com/photo-1696710257827-75e2e5954059?auto=format&fit=crop&w=1200&q=85" alt="Neon streaming setup" data-testid="hero-image"/><div className="visual-label"><span>LIVE / 01</span><b>OBS READY</b></div><div className="visual-stats"><span><Radio size={13}/> SIGNAL</span><strong>98.4%</strong></div></div></section>
-      <section className="ticker" data-testid="ticker"><span>DESIGNED FOR THE UNCOMMON</span><i/> <span>BUILT FOR THE LIVE MOMENT</span><i/> <span>MADE TO BE REMEMBERED</span><i/> <span>DESIGNED FOR THE UNCOMMON</span></section>
-      <section className="services-section" id="services" data-testid="services-section"><div className="section-heading"><div><div className="eyebrow">01 / THE DROP</div><h2>Pick your <em>signal.</em></h2></div><p>Purpose-built assets for creators with a point of view. Select a service, send your brief, and let’s make some noise.</p></div><div className="filter-bar" data-testid="category-filters">{categories.map((cat) => <button className={filter === cat ? "filter active" : "filter"} onClick={() => setFilter(cat)} key={cat} data-testid={`filter-${cat.toLowerCase()}`}>{cat === "ALL" ? "ALL ITEMS" : cat}</button>)}</div><div className="offer-grid" data-testid="offer-grid">{visible.map((offer, index) => <OfferCard key={offer.id} offer={offer} index={index} onSelect={setSelected}/>)}</div></section>
-      <section className="process-section" id="process" data-testid="process-section"><div className="eyebrow">02 / THE WORKFLOW</div><h2>From idea to <em>on-air.</em></h2><div className="process-grid"><Step number="01" title="Choose your signal" text="Pick the service that matches your next level."/><Step number="02" title="Share the brief" text="Tell us about your channel, energy and audience."/><Step number="03" title="Go live different" text="We build your custom kit and deliver the files."/></div></section>
-    </main><footer className="footer"><div className="brand"><span className="brand-mark">B<span>S</span></span><span>BLACKSOLID<small>CREATIVE SUPPLY</small></span></div><span className="footer-copy">© 2025 Blacksolid. Built for the next broadcast.</span><span className="footer-status"><span className="pulse-dot"/> SYSTEMS ONLINE</span></footer>
-    {selected && <Checkout offer={selected} onClose={() => setSelected(null)} onNotice={setNotice}/>} {loginOpen && <Login onClose={() => setLoginOpen(false)} onSuccess={(newToken) => { setToken(newToken); setLoginOpen(false); setAdmin(true); }}/>} {admin && <Admin token={token} onClose={() => setAdmin(false)} onOffers={loadOffers}/>} {notice && <div className="notice" data-testid="status-notice"><Check size={17}/>{notice}<button onClick={() => setNotice(null)} data-testid="close-notice"><X size={16}/></button></div>}
+    <div className="noise-layer"/>
+    <nav className="nav" data-testid="main-navigation">
+      <a className="brand" href="#top" data-testid="brand-home"><span className="brand-mark">BS</span><span className="brand-word">BLACKSOLID<small>CREATIVE SUPPLY</small></span></a>
+      <div className={mobileOpen ? "nav-links mobile-open" : "nav-links"}>
+        <span className="hud-status"><span className="rec-dot"/>REC <Clock/></span>
+        <a href="#services" onClick={() => setMobileOpen(false)} data-testid="services-link">Services</a>
+        <a href="#process" onClick={() => setMobileOpen(false)} data-testid="process-link">Workflow</a>
+        <button className="admin-link" onClick={() => { setMobileOpen(false); token ? setAdmin(true) : setLoginOpen(true); }} data-testid="admin-open-button"><LockKeyhole size={13}/> Control Room</button>
+      </div>
+      <button className="mobile-menu" onClick={() => setMobileOpen(!mobileOpen)} data-testid="mobile-menu-button"><Menu size={20}/></button>
+    </nav>
+
+    <main id="top">
+      <Hero onShop={() => document.getElementById("services")?.scrollIntoView({ behavior: "smooth" })}/>
+
+      <div className="marquee" data-testid="ticker"><div className="marquee-track">
+        {[0, 1].map((n) => <div className="marquee-run" key={n} aria-hidden={n === 1}>
+          <span>BLACKSOLID CREATIVE SUPPLY</span><i/><span>PREMIUM STREAM ASSETS</span><i/><span>OBS READY</span><i/><span>DMCA-SAFE AUDIO</span><i/><span>BUILT FOR THE LIVE MOMENT</span><i/>
+        </div>)}
+      </div></div>
+
+      <section className="services-section" id="services" data-testid="services-section">
+        <motion.div className="section-heading" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }}>
+          <motion.div variants={rise}><div className="eyebrow">01 / THE DROP</div><h2>Pick your <em>signal.</em></h2></motion.div>
+          <motion.p variants={rise}>Purpose-built assets für Creator mit Haltung. Wähl dein Setup, schick dein Briefing – wir liefern den Rest.</motion.p>
+        </motion.div>
+        <motion.div className="filter-bar" data-testid="category-filters" initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, ease }}>
+          {categories.map((cat) => <button className={filter === cat ? "filter active" : "filter"} onClick={() => setFilter(cat)} key={cat} data-testid={`filter-${cat.toLowerCase()}`}>{cat === "ALL" ? "ALL ITEMS" : cat}</button>)}
+        </motion.div>
+        <motion.div className="offer-grid" data-testid="offer-grid" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }}>
+          {visible.map((offer) => <OfferCard key={offer.id} offer={offer} onSelect={setSelected}/>)}
+        </motion.div>
+      </section>
+
+      <section className="process-section" id="process" data-testid="process-section">
+        <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }}>
+          <motion.div className="eyebrow" variants={rise}>02 / THE WORKFLOW</motion.div>
+          <motion.h2 variants={rise}>From idea to <em>on-air.</em></motion.h2>
+          <div className="process-grid">
+            <Step number="01" title="Choose your signal" text="Wähl das Paket, das zu deinem nächsten Level passt."/>
+            <Step number="02" title="Share the brief" text="Erzähl uns von Kanal, Energie und Audience."/>
+            <Step number="03" title="Go live different" text="Wir bauen dein Custom-Kit und liefern alle Files."/>
+          </div>
+        </motion.div>
+      </section>
+    </main>
+
+    <footer className="footer">
+      <div className="brand"><span className="brand-mark">BS</span><span className="brand-word">BLACKSOLID<small>CREATIVE SUPPLY</small></span></div>
+      <span className="footer-copy">© 2026 Blacksolid. Built for the next broadcast.</span>
+      <span className="footer-status"><span className="rec-dot"/> SYSTEMS ONLINE</span>
+    </footer>
+
+    {selected && <Checkout offer={selected} onClose={() => setSelected(null)} onNotice={setNotice}/>}
+    {loginOpen && <Login onClose={() => setLoginOpen(false)} onSuccess={(t) => { setToken(t); setLoginOpen(false); setAdmin(true); }}/>}
+    {admin && <Admin token={token} onClose={() => setAdmin(false)} onOffers={loadOffers}/>}
+    {notice && <motion.div className="notice" data-testid="status-notice" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease }}><Check size={17}/>{notice}<button onClick={() => setNotice(null)} data-testid="close-notice"><X size={16}/></button></motion.div>}
   </div>;
 }
 
-function OfferCard({ offer, index, onSelect }) { const Icon = icons[offer.category] || Sparkles; return <article className={`offer-card card-${index}`} data-testid={`offer-card-${offer.id}`}><div className="card-image"><img src={offer.image} alt={offer.name}/><span className="category-tag"><Icon size={14}/>{offer.category}</span>{offer.featured && <span className="featured-tag">FEATURED</span>}</div><div className="card-body"><div><h3 data-testid={`offer-name-${offer.id}`}>{offer.name}</h3><p data-testid={`offer-description-${offer.id}`}>{offer.description}</p></div><div className="card-bottom"><strong data-testid={`offer-price-${offer.id}`}>€{offer.price.toFixed(2).replace(".00", "")}</strong><button className="card-button" onClick={() => onSelect(offer)} data-testid={`offer-buy-${offer.id}`}>Start a project <ChevronRight size={16}/></button></div></div></article>; }
-function Step({ number, title, text }) { return <div className="step" data-testid={`workflow-step-${number}`}><span>{number}</span><h3>{title}</h3><p>{text}</p></div>; }
-function Checkout({ offer, onClose, onNotice }) { const [form, setForm] = useState({ name: "", email: "", notes: "" }); const [loading, setLoading] = useState(false); async function submit(e) { e.preventDefault(); setLoading(true); try { const result = await axios.post(`${API}/paypal/create-order`, { offer_id: offer.id, ...form }); window.location.href = result.data.approval_url; } catch { onNotice("PayPal konnte die Bestellung nicht starten. Bitte prüfe deine Eingaben."); setLoading(false); } } return <div className="modal-backdrop"><div className="checkout-modal" data-testid="checkout-modal"><button className="modal-close" onClick={onClose} data-testid="checkout-close"><X/></button><div className="modal-kicker">READY WHEN YOU ARE / 03</div><h2>Let’s make it <em>real.</em></h2><p className="modal-intro">Your selection: <b>{offer.name}</b> · €{offer.price.toFixed(2).replace(".00", "")}</p><form onSubmit={submit}><label>Name<input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Dein Name" data-testid="customer-name-input"/></label><label>E-Mail<input required type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="you@creator.com" data-testid="customer-email-input"/></label><label>Brief / Notiz <span>(optional)</span><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Erzähl uns kurz von deinem Kanal..." data-testid="customer-notes-input"/></label><button className="primary-button full" disabled={loading} data-testid="paypal-submit-button"><CreditCard size={17}/>{loading ? "Weiterleitung..." : "Mit PayPal bezahlen"}</button><small className="secure-note"><ShieldCheck size={14}/> Du wirst sicher zu PayPal weitergeleitet. Zahlung in EUR.</small></form></div></div>; }
-function Login({ onClose, onSuccess }) { const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState(""); async function submit(e) { e.preventDefault(); try { const result = await axios.post(`${API}/auth/login`, { email, password }); localStorage.setItem("overlay_admin_token", result.data.token); onSuccess(result.data.token); } catch { setError("Zugangsdaten nicht erkannt."); } } return <div className="modal-backdrop"><div className="login-modal" data-testid="admin-login-modal"><button className="modal-close" onClick={onClose} data-testid="admin-login-close"><X/></button><div className="login-icon"><LockKeyhole/></div><div className="modal-kicker">RESTRICTED AREA</div><h2>Control <em>Room.</em></h2><p>Verwalte deine aktiven Angebote und Preise.</p><form onSubmit={submit}><label>E-Mail<input required type="email" value={email} onChange={e => setEmail(e.target.value)} data-testid="admin-email-input"/></label><label>Passwort<input required type="password" value={password} onChange={e => setPassword(e.target.value)} data-testid="admin-password-input"/></label>{error && <div className="form-error" data-testid="admin-login-error">{error}</div>}<button className="primary-button full" data-testid="admin-login-submit">Enter Control Room <ArrowUpRight size={16}/></button></form></div></div>; }
-function Admin({ token, onClose, onOffers }) { const [items, setItems] = useState([]); const [editing, setEditing] = useState(null); useEffect(() => { axios.get(`${API}/admin/offers`, { headers: { Authorization: `Bearer ${token}` } }).then(r => setItems(r.data)); }, [token]); async function save(item) { await axios.put(`${API}/admin/offers/${item.id}`, item, { headers: { Authorization: `Bearer ${token}` } }); setEditing(null); onOffers(); } return <div className="modal-backdrop"><div className="admin-modal" data-testid="admin-panel"><div className="admin-top"><div><div className="modal-kicker">BLACKSOLID / CONTROL ROOM</div><h2>Offer <em>systems.</em></h2></div><button className="modal-close" onClick={onClose} data-testid="admin-close"><X/></button></div><p className="modal-intro">Ändere Namen, Beschreibungen, Preise und Sichtbarkeit direkt hier.</p><div className="admin-list">{items.map(item => editing?.id === item.id ? <div className="admin-edit" key={item.id}><input value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} data-testid={`edit-name-${item.id}`}/><textarea value={editing.description} onChange={e => setEditing({...editing, description: e.target.value})}/><div className="edit-row"><input type="number" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} data-testid={`edit-price-${item.id}`}/><button className="primary-button" onClick={() => save(editing)} data-testid={`save-offer-${item.id}`}>Save changes</button></div></div> : <div className="admin-row" key={item.id} data-testid={`admin-offer-${item.id}`}><div><span className="category-tag">{item.category}</span><h3>{item.name}</h3></div><strong>€{item.price.toFixed(2).replace(".00", "")}</strong><button onClick={() => setEditing(item)} data-testid={`edit-offer-${item.id}`}><Pencil size={16}/></button></div>)}</div></div></div>; }
+function Hero({ onShop }) {
+  const ref = useRef(null);
+  const mx = useMotionValue(0); const my = useMotionValue(0);
+  const rx = useSpring(useTransform(my, [-0.5, 0.5], [7, -7]), { stiffness: 120, damping: 18 });
+  const ry = useSpring(useTransform(mx, [-0.5, 0.5], [-9, 9]), { stiffness: 120, damping: 18 });
+  const px = useSpring(useTransform(mx, [-0.5, 0.5], [-14, 14]), { stiffness: 80, damping: 20 });
+  const py = useSpring(useTransform(my, [-0.5, 0.5], [-10, 10]), { stiffness: 80, damping: 20 });
+
+  function onMove(e) { const r = ref.current.getBoundingClientRect(); mx.set((e.clientX - r.left) / r.width - 0.5); my.set((e.clientY - r.top) / r.height - 0.5); }
+  const lines = [<>Make your</>, <>stream <em>impossible</em></>, <>to miss.</>];
+
+  return <section className="hero" data-testid="hero-section" ref={ref} onMouseMove={onMove}>
+    <div className="hero-glow"/>
+    <div className="hero-copy">
+      <motion.div className="eyebrow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.8 }}><span className="rec-dot"/> CREATIVE SYSTEMS / 2026</motion.div>
+      <h1>{lines.map((line, i) => <span className="line-mask" key={i}><motion.span initial={{ y: "112%" }} animate={{ y: 0 }} transition={{ delay: 0.25 + i * 0.13, duration: 0.9, ease }}>{line}</motion.span></span>)}</h1>
+      <motion.p className="hero-sub" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.75, duration: 0.7, ease }}>High-impact Visuals, Sound und Identity für Creator, die sich nicht unterkriegen lassen.</motion.p>
+      <motion.div className="hero-actions" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9, duration: 0.7, ease }}>
+        <button className="primary-button" onClick={onShop} data-testid="hero-shop-button">Explore the drop <ArrowUpRight size={17}/></button>
+        <span className="hero-note"><ShieldCheck size={16}/> PayPal secure checkout</span>
+      </motion.div>
+    </div>
+    <motion.div className="hero-visual" style={{ rotateX: rx, rotateY: ry }} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.5, duration: 1, ease }}>
+      <motion.div className="hero-frame" style={{ x: px, y: py }}>
+        <div className="scanline"/><div className="hud-corner hud-tl"/><div className="hud-corner hud-tr"/><div className="hud-corner hud-bl"/><div className="hud-corner hud-br"/>
+        <img src="https://images.unsplash.com/photo-1636489948870-058e57b5f7d9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHwxfHxnYW1pbmclMjBvdmVybGF5JTIwZXNwb3J0cyUyMHN0cmVhbWluZyUyMHNldHVwJTIwcmdiJTIwZGFyayUyMG5lb258ZW58MHx8fHwxNzkwNjg0ODgzfDA&ixlib=rb-4.1.0&q=85" alt="Cyberpunk Gaming Studio Rig" data-testid="hero-image"/>
+        <div className="visual-label"><span>LIVE / 01</span><b>OBS READY</b></div>
+        <div className="visual-stats"><span><Radio size={13}/> SIGNAL</span><strong>98.4%</strong></div>
+        <div className="visual-eq"><i/><i/><i/><i/><i/><i/><i/></div>
+      </motion.div>
+    </motion.div>
+  </section>;
+}
+
+function OfferCard({ offer, onSelect }) {
+  const Icon = icons[offer.category] || Sparkles;
+  return <motion.article className="offer-card" variants={rise} data-testid={`offer-card-${offer.id}`} whileHover={{ y: -8 }} transition={{ type: "spring", stiffness: 260, damping: 22 }}>
+    <div className="card-image"><img src={offer.image} alt={offer.name}/><span className="category-tag"><Icon size={13}/>{offer.category}</span>{offer.featured && <span className="featured-tag">FEATURED</span>}</div>
+    <div className="card-body"><div><h3 data-testid={`offer-name-${offer.id}`}>{offer.name}</h3><p data-testid={`offer-description-${offer.id}`}>{offer.description}</p></div>
+    <div className="card-bottom"><strong data-testid={`offer-price-${offer.id}`}>€{offer.price.toFixed(2).replace(".00", "")}</strong><button className="card-button" onClick={() => onSelect(offer)} data-testid={`offer-buy-${offer.id}`}>Start a project <ChevronRight size={16}/></button></div></div>
+  </motion.article>;
+}
+
+function Step({ number, title, text }) { return <motion.div className="step" variants={rise} data-testid={`workflow-step-${number}`}><span>{number}</span><h3>{title}</h3><p>{text}</p></motion.div>; }
+
+function Checkout({ offer, onClose, onNotice }) {
+  const [form, setForm] = useState({ name: "", email: "", notes: "" }); const [loading, setLoading] = useState(false);
+  async function submit(e) { e.preventDefault(); setLoading(true); try { const result = await axios.post(`${API}/paypal/create-order`, { offer_id: offer.id, ...form }); window.location.href = result.data.approval_url; } catch { onNotice("PayPal konnte die Bestellung nicht starten. Bitte prüfe deine Eingaben."); setLoading(false); } }
+  return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+    <motion.div className="checkout-modal" data-testid="checkout-modal" initial={{ opacity: 0, y: 40, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.45, ease }}>
+      <button className="modal-close" onClick={onClose} data-testid="checkout-close"><X/></button>
+      <div className="modal-kicker">READY WHEN YOU ARE / 03</div>
+      <h2>Let’s make it <em>real.</em></h2>
+      <p className="modal-intro">Deine Auswahl: <b>{offer.name}</b> · €{offer.price.toFixed(2).replace(".00", "")}</p>
+      <form onSubmit={submit}>
+        <label>Name<input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Dein Name" data-testid="customer-name-input"/></label>
+        <label>E-Mail<input required type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="you@creator.com" data-testid="customer-email-input"/></label>
+        <label>Brief / Notiz <span>(optional)</span><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Erzähl uns kurz von deinem Kanal..." data-testid="customer-notes-input"/></label>
+        <button className="primary-button full" disabled={loading} data-testid="paypal-submit-button"><CreditCard size={17}/>{loading ? "Weiterleitung..." : "Mit PayPal bezahlen"}</button>
+        <small className="secure-note"><ShieldCheck size={14}/> Du wirst sicher zu PayPal weitergeleitet. Zahlung in EUR.</small>
+      </form>
+    </motion.div>
+  </motion.div>;
+}
+
+function Login({ onClose, onSuccess }) {
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState("");
+  async function submit(e) { e.preventDefault(); try { const result = await axios.post(`${API}/auth/login`, { email, password }); localStorage.setItem("overlay_admin_token", result.data.token); onSuccess(result.data.token); } catch { setError("Zugangsdaten nicht erkannt."); } }
+  return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+    <motion.div className="login-modal" data-testid="admin-login-modal" initial={{ opacity: 0, y: 40, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.45, ease }}>
+      <button className="modal-close" onClick={onClose} data-testid="admin-login-close"><X/></button>
+      <div className="login-icon"><LockKeyhole/></div>
+      <div className="modal-kicker">RESTRICTED AREA</div>
+      <h2>Control <em>Room.</em></h2>
+      <p>Verwalte deine aktiven Angebote und Preise.</p>
+      <form onSubmit={submit}>
+        <label>E-Mail<input required type="email" value={email} onChange={e => setEmail(e.target.value)} data-testid="admin-email-input"/></label>
+        <label>Passwort<input required type="password" value={password} onChange={e => setPassword(e.target.value)} data-testid="admin-password-input"/></label>
+        {error && <div className="form-error" data-testid="admin-login-error">{error}</div>}
+        <button className="primary-button full" data-testid="admin-login-submit">Enter Control Room <ArrowUpRight size={16}/></button>
+      </form>
+    </motion.div>
+  </motion.div>;
+}
+
+function Admin({ token, onClose, onOffers }) {
+  const [items, setItems] = useState([]); const [editing, setEditing] = useState(null);
+  useEffect(() => { axios.get(`${API}/admin/offers`, { headers: { Authorization: `Bearer ${token}` } }).then(r => setItems(r.data)); }, [token]);
+  async function save(item) { await axios.put(`${API}/admin/offers/${item.id}`, item, { headers: { Authorization: `Bearer ${token}` } }); setEditing(null); onOffers(); }
+  return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+    <motion.div className="admin-modal" data-testid="admin-panel" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease }}>
+      <div className="admin-top"><div><div className="modal-kicker">BLACKSOLID / CONTROL ROOM</div><h2>Offer <em>systems.</em></h2></div><button className="modal-close" onClick={onClose} data-testid="admin-close"><X/></button></div>
+      <p className="modal-intro">Ändere Namen, Beschreibungen, Preise und Sichtbarkeit direkt hier.</p>
+      <div className="admin-list">{items.map(item => editing?.id === item.id ?
+        <div className="admin-edit" key={item.id}>
+          <input value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} data-testid={`edit-name-${item.id}`}/>
+          <textarea value={editing.description} onChange={e => setEditing({...editing, description: e.target.value})}/>
+          <div className="edit-row"><input type="number" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} data-testid={`edit-price-${item.id}`}/><button className="primary-button" onClick={() => save(editing)} data-testid={`save-offer-${item.id}`}>Save changes</button></div>
+        </div> :
+        <div className="admin-row" key={item.id} data-testid={`admin-offer-${item.id}`}>
+          <div><span className="category-tag">{item.category}</span><h3>{item.name}</h3></div>
+          <strong>€{item.price.toFixed(2).replace(".00", "")}</strong>
+          <button onClick={() => setEditing(item)} data-testid={`edit-offer-${item.id}`}><Pencil size={16}/></button>
+        </div>)}
+      </div>
+    </motion.div>
+  </motion.div>;
+}
+
 export default App;

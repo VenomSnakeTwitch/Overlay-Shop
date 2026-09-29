@@ -11,6 +11,7 @@ React SPA (Frontend) + FastAPI (Backend) + MongoDB. Custom JWT Admin-Auth. PayPa
 - 2026-09: Admin-Panel (Control Room) zum Bearbeiten von Angeboten und Preisen (JWT-geschützt)
 - 2026-09: PayPal-Checkout (create-order / capture) mit Bestellungen in MongoDB
 - 2026-09: FIX — PayPal 401 invalid_client behoben: Ursache waren Sandbox-Keys im Live-Modus; Live-Keys des Users hinterlegt, Live-Bestellung erfolgreich getestet (Order-ID + Approval-URL von paypal.com)
+- 2026-09: REDESIGN — Award-Level Design-Upgrade: Unbounded/JetBrains Mono Typografie, Neon-Cyan auf Obsidian, Masked Line-Reveal Hero, 3D-Tilt/Parallax Hero-Frame mit HUD-Corners + Scanlines + Audio-EQ, langsamer Editorial-Marquee, Lenis Smooth Scrolling, framer-motion Scroll-Reveals, Cyber Clip-Path Frames, SVG-Favicon, neue Produktnamen (Signalframe / Blackmark / Nightdrive) mit kuratierten Bildern
 
 ## Personas
 - Shop-Betreiber (Admin): pflegt Angebote/Preise

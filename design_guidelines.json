@@ -1,38 +1,114 @@
 {
-  "app_type": "hybrid_fullstack",
-  "theme": "dark",
-  "styling": {
-    "palette": {
-      "primary": "#3B82F6",
-      "secondary": "#8B5CF6",
-      "accent": "#00F0FF",
-      "bg_dark": "#0A0B10",
-      "surface_dark": "#131622",
-      "surface_card": "#181D30",
-      "border_neon": "rgba(0, 240, 255, 0.3)",
-      "text_main": "#F8FAFC",
-      "text_muted": "#94A3B8"
-    },
-    "typography": {
-      "headings": "Outfit, sans-serif",
-      "body": "Inter, sans-serif",
-      "mono": "JetBrains Mono, monospace"
+  "project_name": "BLACKSOLID CREATIVE SUPPLY",
+  "archetype": "THE PERFORMANCE PRO / OBS GAMING TERMINAL",
+  "theme": {
+    "mode": "dark",
+    "background": "#07090E",
+    "surface": "#0E121B",
+    "surface_elevated": "#151B28",
+    "surface_border": "rgba(0, 240, 255, 0.15)",
+    "primary_accent": "#00F0FF",
+    "secondary_accent": "#0055FF",
+    "tactical_green": "#00FF66",
+    "danger_red": "#FF2A5F",
+    "text_primary": "#F0F4F8",
+    "text_muted": "#8B9BB4",
+    "scanline_overlay": "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%)",
+    "cyber_grid": "radial-gradient(circle, rgba(0,240,255,0.08) 1px, transparent 1px)"
+  },
+  "typography": {
+    "display_font": "Unbounded, sans-serif",
+    "body_font": "Plus Jakarta Sans, sans-serif",
+    "mono_hud_font": "JetBrains Mono, monospace",
+    "google_fonts_url": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Unbounded:wght@400;600;800;900&display=swap",
+    "scale": {
+      "hero_h1": "text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05]",
+      "section_h2": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight",
+      "card_h3": "text-lg sm:text-xl font-semibold tracking-normal",
+      "mono_label": "font-mono text-xs uppercase tracking-[0.2em] text-[#00F0FF]",
+      "body_text": "text-sm sm:text-base leading-relaxed text-[#8B9BB4]"
     }
   },
-  "image_urls": {
-    "hero_stream_setup": "https://images.unsplash.com/photo-1696710257827-75e2e5954059?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDR8MHwxfHNlYXJjaHwxfHxjeWJlcnB1bmslMjBzdHJlYW1lciUyMG5lb24lMjBnYW1pbmclMjBvdmVybGF5fGVufDB8fHx8MTc4ODkxMDAzMXww&ixlib=rb-4.1.0&q=85",
-    "esports_logo": "https://images.unsplash.com/photo-1548686304-5c3be888a00b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwxfHxlc3BvcnRzJTIwZ2FtaW5nJTIwbG9nbyUyMG1hc2NvdCUyMHN0cmVhbWluZ3xlbnwwfHx8fDE3OTA2NzkwMjd8MA&ixlib=rb-4.1.0&q=85",
-    "stream_music": "https://images.unsplash.com/photo-1616681255209-368a2cd3e643?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwyfHxkaiUyMHR1cm50YWJsZSUyMHZpbnlsJTIwbmVvbnxlbnwwfHx8fDE3OTA2NzkwMzB8MA&ixlib=rb-4.1.0&q=85"
+  "visual_enhancers": {
+    "cyber_clip_path": "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))",
+    "neon_box_shadow": "0 0 20px rgba(0, 240, 255, 0.25)",
+    "glow_border": "1px solid rgba(0, 240, 255, 0.3)",
+    "glassmorphism": "backdrop-blur-xl bg-[#0E121B]/80 border border-[#00F0FF]/20 shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
+    "obs_rec_indicator": "animate-pulse bg-[#FF2A5F] w-3 h-3 rounded-full inline-block mr-2"
   },
-  "key_features": [
-    "Public storefront with editable offers and prices",
-    "Protected Admin panel for managing offers and live price updates",
-    "Three initial service categories: Stream Overlays, Logos & Branding, Stream Music & Jingles",
-    "Customer details checkout flow with PayPal live payment handoff",
-    "Gaming OBS streaming visual style with neon blue/purple accents and dark theme"
+  "image_urls": {
+    "hero": [
+      {
+        "url": "https://images.unsplash.com/photo-1636489948870-058e57b5f7d9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHwxfHxnYW1pbmclMjBvdmVybGF5JTIwZXNwb3J0cyUyMHN0cmVhbWluZyUyMHNldHVwJTIwcmdiJTIwZGFyayUyMG5lb258ZW58MHx8fHwxNzkwNjg0ODgzfDA&ixlib=rb-4.1.0&q=85",
+        "alt": "Cyberpunk Gaming Studio Rig Setup",
+        "category": "hero_background"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1636488363142-d5f670129ef4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHwyfHxnYW1pbmclMjBvdmVybGF5JTIwZXNwb3J0cyUyMHN0cmVhbWluZyUyMHNldHVwJTIwcmdiJTIwZGFyayUyMG5lb258ZW58MHx8fHwxNzkwNjg0ODgzfDA&ixlib=rb-4.1.0&q=85",
+        "alt": "OBS Streamer Control Station",
+        "category": "hero_side"
+      }
+    ],
+    "overlays": [
+      {
+        "url": "https://images.unsplash.com/photo-1636489953081-c4ebbd50fa3a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHwzfHxnYW1pbmclMjBvdmVybGF5JTIwZXNwb3J0cyUyMHN0cmVhbWluZyUyMHNldHVwJTIwcmdiJTIwZGFyayUyMG5lb258ZW58MHx8fHwxNzkwNjg0ODgzfDA&ixlib=rb-4.1.0&q=85",
+        "alt": "Neon Cyber Stream Overlay Package",
+        "category": "product_overlays"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1558742619-fd82741daa99?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHw0fHxnYW1pbmclMjBvdmVybGF5JTIwZXNwb3J0cyUyMHN0cmVhbWluZyUyMHNldHVwJTIwcmdiJTIwZGFyayUyMG5lb258ZW58MHx8fHwxNzkwNjg0ODgzfDA&ixlib=rb-4.1.0&q=85",
+        "alt": "HUD Esports Stream Frame",
+        "category": "product_overlays"
+      }
+    ],
+    "branding": [
+      {
+        "url": "https://images.unsplash.com/photo-1620825937374-87fc7d6bddc2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHxfHxlc3BvcnRzJTIwbG9nbyUyMHN0cmVhbWluZ3xlbnwwfHx8fDE3OTA2ODQ4ODN8MA&ixlib=rb-4.1.0&q=85",
+        "alt": "Esports Streamer Brand Identity & Mascot",
+        "category": "product_branding"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1607896426171-99097eb60cb6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwyfHxlc3BvcnRzJTIwbG9nbyUyMHN0cmVhbWluZ3xlbnwwfHx8fDE3OTA2ODQ4ODN8MA&ixlib=rb-4.1.0&q=85",
+        "alt": "Twitch & YouTube Channel Banner Kit",
+        "category": "product_branding"
+      }
+    ],
+    "music": [
+      {
+        "url": "https://images.unsplash.com/photo-1518972559570-7cc1309f3229?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxtdXNpYyUyMHByb2R1Y2VyJTIwc3R1ZGlvJTIwYXVkaW8lMjBuZW9uJTIwc3ludGhlc2l6ZXIlMjBnYW1pbmd8ZW58MHx8fHwxNzkwNjg0ODk2fDA&ixlib=rb-4.1.0&q=85",
+        "alt": "DMCA-Free Cyber Synthwave Audio Pack",
+        "category": "product_music"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1618609377864-68609b857e90?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHxfHxtdXNpYyUyMHByb2R1Y2VyJTIwc3R1ZGlvfGVufDB8fHx8MTc5MDY4NDg5Nnw0&ixlib=rb-4.1.0&q=85",
+        "alt": "Custom Stream Stinger Audio & Sound FX",
+        "category": "product_music"
+      }
+    ]
+  },
+  "key_components": [
+    "OBS-Style Header with Signal Status, Live Clock & Admin Control Toggle",
+    "Hero Section with Masked Motion Reveal and 3D Cyber Card Frame",
+    "Slow Kinetic Editorial Marquee (BLACKSOLID CREATIVE SUPPLY - PREMIUM STREAM ASSETS)",
+    "Interactive Product Catalog Grid with Filters (All, Overlays, Branding, Audio/Music)",
+    "Product Photography Clip-Path Framing with Hover Glow Effects",
+    "Instant PayPal Checkout Drawer / Modal with Order Summary & Direct Redirect",
+    "Admin Control Room Modal ('OBS Command Station') to edit title, price, tag & stock live in local state",
+    "Services & Custom Commission Workflow Steps (01 Brief -> 02 Prototype -> 03 Delivery)",
+    "OBS HUD Audio Visualizer Decorative Widget"
   ],
-  "accessibility_and_testing": {
-    "data_testid_required": true,
-    "apca_contrast_compliance": true
-  }
+  "motion_and_libraries": {
+    "smooth_scroll": "Lenis scroll momentum integration",
+    "animation_framework": "framer-motion for scroll reveals and staggered grid items",
+    "icons": "lucide-react with high contrast cyan highlights",
+    "notifications": "sonner (positioned top-right with dark obsidian glass theme)"
+  },
+  "instructions_to_main_agent": [
+    "Ensure all interactive elements have data-testid attributes (e.g., data-testid='checkout-button', data-testid='admin-control-btn', data-testid='filter-category-overlays').",
+    "Use JavaScript (.js/.jsx) files only as per project configuration.",
+    "Do NOT use transparent backgrounds on dropdowns, modals, or sticky headers. Always use translucent dark glass (#0E121B/80 with backdrop-blur-xl).",
+    "Integrate Lenis or framer-motion smooth scroll for premium Awwwards motion physics.",
+    "Admin Control Room modal must allow full editing of product prices, titles, and descriptions so streamers can customize their store.",
+    "Include PayPal checkout action with simulated live redirect / modal confirmation."
+  ]
 }
