@@ -426,6 +426,10 @@ textarea { min-height: 90px; resize: vertical; }
 .logged-in-note svg { flex-shrink: 0; }
 
 .order-delete { background: none; border: 1px solid var(--border); color: var(--muted); padding: 8px; cursor: pointer; }
+.complete-button { background: none; border: 1px solid rgba(0, 255, 102, 0.35); color: var(--green); padding: 8px; cursor: pointer; transition: background-color 0.25s, color 0.25s; }
+.complete-button:hover { background: var(--green); color: #04121a; }
+.done-count { background: var(--green); }
+.order-side .row-actions { margin-top: 4px; }
 .logout-btn { margin-top: 22px; display: inline-flex; align-items: center; gap: 8px; }
 
 .upload-row { display: flex; align-items: center; gap: 14px; }

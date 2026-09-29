@@ -344,6 +344,20 @@ async def admin_orders(authorization: Optional[str] = Header(None)):
     require_admin(authorization)
     return await db.orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
 
+@api_router.post("/admin/orders/{paypal_id}/complete")
+async def complete_order_admin(paypal_id: str, authorization: Optional[str] = Header(None)):
+    require_admin(authorization)
+    result = await db.orders.update_one({"paypal_id": paypal_id}, {"$set": {"done": True}})
+    if result.matched_count == 0: raise HTTPException(404, "Bestellung nicht gefunden")
+    return {"done": True}
+
+@api_router.delete("/admin/orders/{paypal_id}")
+async def delete_order_admin(paypal_id: str, authorization: Optional[str] = Header(None)):
+    require_admin(authorization)
+    result = await db.orders.delete_one({"paypal_id": paypal_id})
+    if result.deleted_count == 0: raise HTTPException(404, "Bestellung nicht gefunden")
+    return {"deleted": True}
+
 ALLOWED_IMAGE_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
 
 @api_router.post("/admin/upload")

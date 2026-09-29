@@ -393,13 +393,37 @@ function Admin({ token, onClose, onOffers }) {
     await axios.put(`${API}/admin/settings`, { sale_ends_at: iso }, { headers });
     setSaleSaved(iso ? `Sale-Timer aktiv bis ${new Date(iso).toLocaleString("de-DE")}` : "Sale-Timer deaktiviert");
   }
+  async function completeOrder(o) { await axios.post(`${API}/admin/orders/${o.paypal_id}/complete`, {}, { headers }); load(); }
+  async function removeOrder(o) { await axios.delete(`${API}/admin/orders/${o.paypal_id}`, { headers }); load(); }
+  const openOrders = orders.filter((o) => !o.done);
+  const doneOrders = orders.filter((o) => o.done);
+
+  function orderRow(o, isDone) {
+    return <div className="order-row" key={o.paypal_id} data-testid={`order-row-${o.paypal_id}`}>
+      <div className="order-main">
+        <strong>{(o.items || []).map((i) => i.name).join(" + ") || o.offer_name || o.offer_id}</strong>
+        <span>{o.customer?.name} · {o.customer?.email}</span>
+        {o.customer?.notes && <em>„{o.customer.notes}“</em>}
+      </div>
+      <div className="order-side">
+        {(o.total ?? o.price) != null && <b className="order-price">{fmt(o.total ?? o.price)}</b>}
+        <span className={`status-badge ${o.status === "COMPLETED" ? "ok" : "pending"}`} data-testid={`order-status-${o.paypal_id}`}>{o.status === "COMPLETED" ? "BEZAHLT" : "OFFEN"}</span>
+        <small>{o.created_at ? new Date(o.created_at).toLocaleString("de-DE") : ""}</small>
+        <div className="row-actions">
+          {!isDone && <button className="complete-button" title="Als erledigt markieren" onClick={() => completeOrder(o)} data-testid={`order-complete-${o.paypal_id}`}><Check size={15}/></button>}
+          <button className="delete-button" title="Bestellung entfernen" onClick={() => removeOrder(o)} data-testid={`order-delete-${o.paypal_id}`}><Trash2 size={15}/></button>
+        </div>
+      </div>
+    </div>;
+  }
 
   return <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
     <motion.div className="admin-modal" data-testid="admin-panel" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease }}>
       <div className="admin-top"><div><div className="modal-kicker">BLACKSOLID / CONTROL ROOM</div><h2>Command <em>station.</em></h2></div><button className="modal-close" onClick={onClose} data-testid="admin-close"><X/></button></div>
       <div className="admin-tabs">
         <button className={tab === "offers" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("offers")} data-testid="admin-tab-offers">Angebote</button>
-        <button className={tab === "orders" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("orders")} data-testid="admin-tab-orders">Bestellungen {orders.length > 0 && <span className="tab-count">{orders.length}</span>}</button>
+        <button className={tab === "orders" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("orders")} data-testid="admin-tab-orders">Bestellungen {openOrders.length > 0 && <span className="tab-count">{openOrders.length}</span>}</button>
+        <button className={tab === "done" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("done")} data-testid="admin-tab-done">Erledigt {doneOrders.length > 0 && <span className="tab-count done-count">{doneOrders.length}</span>}</button>
         <button className={tab === "sale" ? "admin-tab active" : "admin-tab"} onClick={() => setTab("sale")} data-testid="admin-tab-sale"><Timer size={12}/> Sale-Timer</button>
       </div>
 
@@ -452,21 +476,18 @@ function Admin({ token, onClose, onOffers }) {
       </>}
 
       {tab === "orders" && <>
-        <p className="modal-intro">Alle eingegangenen Käufe mit Kundendaten und Zahlungsstatus.</p>
+        <p className="modal-intro">Alle offenen Käufe mit Kundendaten und Zahlungsstatus. Erledigte Aufträge wandern in den Tab „Erledigt".</p>
         <div className="admin-list" data-testid="orders-list">
-          {orders.length === 0 && <p className="orders-empty" data-testid="orders-empty">Noch keine Bestellungen eingegangen.</p>}
-          {orders.map(o => <div className="order-row" key={o.paypal_id} data-testid={`order-row-${o.paypal_id}`}>
-            <div className="order-main">
-              <strong>{(o.items || []).map((i) => i.name).join(" + ") || o.offer_name || o.offer_id}</strong>
-              <span>{o.customer?.name} · {o.customer?.email}</span>
-              {o.customer?.notes && <em>„{o.customer.notes}“</em>}
-            </div>
-            <div className="order-side">
-              {(o.total ?? o.price) != null && <b className="order-price">{fmt(o.total ?? o.price)}</b>}
-              <span className={`status-badge ${o.status === "COMPLETED" ? "ok" : "pending"}`} data-testid={`order-status-${o.paypal_id}`}>{o.status === "COMPLETED" ? "BEZAHLT" : "OFFEN"}</span>
-              <small>{o.created_at ? new Date(o.created_at).toLocaleString("de-DE") : ""}</small>
-            </div>
-          </div>)}
+          {openOrders.length === 0 && <p className="orders-empty" data-testid="orders-empty">Keine offenen Bestellungen.</p>}
+          {openOrders.map((o) => orderRow(o, false))}
+        </div>
+      </>}
+
+      {tab === "done" && <>
+        <p className="modal-intro">Abgeschlossene Aufträge – hier landet alles, was du als erledigt markiert hast.</p>
+        <div className="admin-list" data-testid="done-orders-list">
+          {doneOrders.length === 0 && <p className="orders-empty" data-testid="done-orders-empty">Noch keine erledigten Bestellungen.</p>}
+          {doneOrders.map((o) => orderRow(o, true))}
         </div>
       </>}
 
