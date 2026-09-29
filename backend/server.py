@@ -129,15 +129,16 @@ async def send_email(*, to: str, subject: str, html: str, reply_to: Optional[str
         logger.error(f"Email send error: {e}")
         return None
 
+def item_row(i):
+    price_txt = "kostenlos" if i["price"] == 0 else f"{i['price']:.2f} EUR"
+    return (f'<tr><td style="padding:6px 0;font-size:13px">{escape(i["name"])}</td>'
+            f'<td style="padding:6px 0;font-size:13px;text-align:right">{price_txt}</td></tr>')
+
 async def send_purchase_email(order: dict, order_id: str):
     c = order.get("customer", {})
     items = order.get("items", [])
     total = order.get("total") or sum(i.get("price", 0) for i in items)
     subject = f"Neue Bestellung: {len(items)} Artikel" if len(items) != 1 else f"Neue Bestellung: {items[0]['name']}"
-    def item_row(i):
-        price_txt = "kostenlos" if i["price"] == 0 else f"{i['price']:.2f} EUR"
-        return (f'<tr><td style="padding:6px 0;font-size:13px">{escape(i["name"])}</td>'
-                f'<td style="padding:6px 0;font-size:13px;text-align:right">{price_txt}</td></tr>')
     item_rows = "".join(item_row(i) for i in items)
     notes_row = (f'<tr><td style="padding:6px 0;color:#8B9BB4;font-size:13px">Notiz</td>'
                  f'<td style="padding:6px 0;font-size:13px">{escape(c.get("notes", ""))}</td></tr>') if c.get("notes") else ""
@@ -159,6 +160,32 @@ async def send_purchase_email(order: dict, order_id: str):
         '</td></tr></table></td></tr></table>'
     )
     return await send_email(to=os.environ.get("ORDER_EMAIL") or os.environ["ADMIN_EMAIL"], subject=subject, html=html)
+
+async def send_customer_email(order: dict, order_id: str):
+    c = order.get("customer", {})
+    items = order.get("items", [])
+    subject = f"Deine Bestellung bei {EMAIL_FROM_NAME} ist in Arbeit"
+    item_rows = "".join(item_row(i) for i in items)
+    total = order.get("total") or sum(i.get("price", 0) for i in items)
+    total_txt = "kostenlos" if total == 0 else f"{total:.2f} EUR"
+    html = (
+        '<table role="presentation" width="100%" style="background:#07090E;padding:32px 0"><tr><td align="center">'
+        '<table role="presentation" width="520" style="background:#0E121B;border:1px solid rgba(0,240,255,0.25);padding:32px;font-family:Arial,sans-serif;color:#F0F4F8">'
+        '<tr><td><p style="font-size:11px;letter-spacing:3px;color:#00F0FF;margin:0 0 8px">BLACKSOLID CREATIVE SUPPLY</p>'
+        f'<h1 style="font-size:22px;margin:0 0 18px">Deine Bestellung ist in Arbeit</h1>'
+        f'<p style="font-size:14px;line-height:1.6;margin:0 0 20px">Hi {escape(c.get("name", "Creator"))}, danke fuer deine Bestellung! '
+        'Wir haben sie erhalten und machen uns direkt an die Arbeit. Sobald alles fertig ist, bekommst du dein Paket an diese E-Mail-Adresse geliefert.</p>'
+        '<table role="presentation" width="100%" style="border-top:1px solid rgba(0,240,255,0.15)">'
+        f'{item_rows}'
+        f'<tr><td style="padding:10px 0 6px;font-size:14px;border-top:1px solid rgba(0,240,255,0.15)"><strong>Gesamt</strong></td>'
+        f'<td style="padding:10px 0 6px;font-size:14px;text-align:right;border-top:1px solid rgba(0,240,255,0.15)"><strong>{total_txt}</strong></td></tr>'
+        f'<tr><td style="padding:6px 0;color:#8B9BB4;font-size:13px">Bestell-Nr.</td><td style="padding:6px 0;font-size:13px;text-align:right">{escape(order_id)}</td></tr>'
+        '</table>'
+        '<p style="font-size:12px;color:#8B9BB4;line-height:1.6;margin:20px 0 0">Fragen zu deiner Bestellung? Antworte einfach auf diese E-Mail.</p>'
+        f'<p style="font-size:11px;color:#8B9BB4;margin:16px 0 0">Gesendet von {escape(EMAIL_FROM_NAME)}. Wir fragen niemals nach Passwoertern oder Kartendaten per E-Mail.</p>'
+        '</td></tr></table></td></tr></table>'
+    )
+    return await send_email(to=c["email"], subject=subject, html=html)
 
 class Offer(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -412,6 +439,7 @@ async def create_order(data: CartCheckout, authorization: Optional[str] = Header
         await db.orders.insert_one({**base_doc, "paypal_id": free_id, "status": "COMPLETED", "free": True})
         try:
             await send_purchase_email({**base_doc}, free_id)
+            await send_customer_email(base_doc, free_id)
         except Exception as e:
             logger.error(f"Kauf-E-Mail fehlgeschlagen: {e}")
         return {"order_id": free_id, "free": True}
@@ -432,14 +460,15 @@ async def capture_order(order_id: str):
     response = await asyncio.to_thread(requests.post, f"{os.environ['PAYPAL_BASE_URL']}/v2/checkout/orders/{order_id}/capture", headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
     if response.status_code >= 400: raise HTTPException(502, "Zahlung konnte nicht bestätigt werden")
     data = response.json(); status = data.get("status", "COMPLETED")
+    order = await db.orders.find_one({"paypal_id": order_id}, {"_id": 0})
+    already_done = (order or {}).get("status") == "COMPLETED"
     await db.orders.update_one({"paypal_id": order_id}, {"$set": {"status": status}})
-    if status == "COMPLETED":
-        order = await db.orders.find_one({"paypal_id": order_id}, {"_id": 0})
-        if order and order.get("items"):
-            try:
-                await send_purchase_email(order, order_id)
-            except Exception as e:
-                logger.error(f"Kauf-E-Mail fehlgeschlagen: {e}")
+    if status == "COMPLETED" and order and order.get("items") and not already_done:
+        try:
+            await send_purchase_email(order, order_id)
+            await send_customer_email(order, order_id)
+        except Exception as e:
+            logger.error(f"Kauf-E-Mail fehlgeschlagen: {e}")
     return {"status": status}
 
 app.include_router(api_router)
