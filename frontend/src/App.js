@@ -131,7 +131,7 @@ function App() {
         <motion.div className="filter-bar" data-testid="category-filters" initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, ease }}>
           {categories.map((cat) => <button className={filter === cat ? "filter active" : "filter"} onClick={() => setFilter(cat)} key={cat} data-testid={`filter-${cat.toLowerCase()}`}>{cat === "ALL" ? "ALL ITEMS" : cat}</button>)}
         </motion.div>
-        <motion.div className="offer-grid" data-testid="offer-grid" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }}>
+        <motion.div className="offer-grid" data-testid="offer-grid" variants={stagger} initial="hidden" animate="show" key={visible.map((o) => o.id).join(",")}>
           {visible.map((offer) => <OfferCard key={offer.id} offer={offer} inCart={cart.includes(offer.id)} onAdd={addToCart}/>)}
         </motion.div>
       </section>
